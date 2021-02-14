@@ -1,0 +1,43 @@
+[package]
+name = "il0373"
+version = "0.1.0"
+authors = ["Greg Green <ggreen@bit-builder.com>"]
+description = "Driver for the IL0373 e-Paper display (EPD) controller, for use with embedded-hal"
+
+documentation = "https://docs.rs/il0373"
+repository = "https://github.com/gpgreen/il0373"
+
+readme = "README.md"
+keywords = ["embedded", "epd", "epaper", "display", "il0373"]
+categories = ["embedded", "no-std"]
+
+license = "MIT OR Apache-2.0"
+
+[badges]
+travis-ci = { repository = "wezm/ssd1675" }
+codecov = { repository = "wezm/ssd1675" }
+
+[dependencies]
+libm = "0.2.1"
+
+[dependencies.embedded-hal]
+features = ["unproven"]
+version = "0.2.3"
+
+[dependencies.embedded-graphics]
+optional = true
+version = "0.6.2"
+
+[dependencies.linux-embedded-hal]
+optional = true
+version = "0.3.0"
+
+[dependencies.profont]
+optional = true
+version = "0.4.0"
+
+[features]
+default = ["graphics"]
+graphics = ["embedded-graphics"]
+examples = ["linux-embedded-hal", "profont"]
+
