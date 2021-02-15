@@ -125,7 +125,6 @@ where
 
     /// power down
     pub fn power_down(&mut self) -> Result<(), I::Error> {
-	// 0x17
 	Command::VCOMDataIntervalSetting(
 	    0x0, DataPolarity::BWOnly, DataInterval::V10).execute(&mut self.interface)?;
         Command::VCMDCSetting(0).execute(&mut self.interface)?;
