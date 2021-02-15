@@ -3,12 +3,12 @@
 Rust driver for the [Solomon Systech IL0373][IL0373] e-Paper display (EPD)
 controller, for use with [embedded-hal].
 
-[![Build Status](https://travis-ci.org/wezm/ssd1675.svg?branch=master)](https://travis-ci.org/wezm/ssd1675)
-[![codecov](https://codecov.io/gh/wezm/ssd1675/branch/master/graph/badge.svg)](https://codecov.io/gh/wezm/ssd1675)
+[![Build Status](https://travis-ci.org/gpgreen/il0373.svg?branch=master)](https://travis-ci.org/gpgreen/il0373)
+[![codecov](https://codecov.io/gh/gpgreen/il0373/branch/master/graph/badge.svg)](https://codecov.io/gh/gpgreen/il0373)
 [![crates.io](https://img.shields.io/crates/v/ssd1675.svg)](https://crates.io/crates/ssd1675)
 [![Documentation](https://docs.rs/ssd1675/badge.svg)][crate-docs]
 
-<img src="https://raw.githubusercontent.com/wezm/ssd1675/master/IMG_2198.jpg" width="459" alt="Photo of Inky pHAT ePaper display on Raspberry Pi Zero W" />
+<img src="https://raw.githubusercontent.com/gpgreen/il0373/master/IMG_2198.jpg" width="459" alt="Photo of Inky pHAT ePaper display on Raspberry Pi Zero W" />
 
 ## Description
 
@@ -20,7 +20,7 @@ safe Rust. It supports the 4-wire SPI interface.
 
 The library has been tested and confirmed working on these devices:
 
-* Red/Black/White [Inky pHAT] version 2 on Raspberry Pi Zero (pictured above)
+* Adafruit 2.13 Tri-Color eInk [Adafruit Tri-Color eInk] on Nucleo F103RB dev board (pictured above)
 
 ## Examples
 
@@ -28,40 +28,24 @@ The library has been tested and confirmed working on these devices:
 
     cargo build --release --examples --features examples
 
-### Raspberry Pi with Inky pHAT
+### Nucleo-F103RB with Adafruit 2.13 eInk
 
 The [Raspberry Pi Inky pHAT
-example](https://github.com/wezm/ssd1675/blob/master/examples/raspberry_pi_inky_phat.rs),
-shows how to display information on an [Inky pHAT] using this crate. The photo
-at the top of the page shows this example in action. To avoid the need to
-compile on the Raspberry Pi itself I recommend cross-compiling with the [cross]
-tool. With `cross` installed build the example as follows:
-
-    cross build --target=arm-unknown-linux-gnueabi --release --example raspberry_pi_inky_phat --features examples
-
-After it is built copy
-`target/arm-unknown-linux-gnueabi/release/examples/raspberry_pi_inky_phat` to
-the Raspberry Pi.
+example](https://github.com/gpgreen/il0373/blob/master/examples/raspberry_pi_inky_phat.rs),
+shows how to display information on an [Adafruit Tri-Color eInk] using this crate. The photo
+at the top of the page shows this example in action.
 
 ## Credits
 
-* [Waveshare EPD driver](https://github.com/caemor/epd-waveshare)
-* [SSD1306 OLED display driver](https://github.com/jamwaffles/ssd1306)
-* [SSD1322 OLED display driver](https://github.com/edarc/ssd1322)
-* [Pimoroni Python library for the Inky pHAT and Inky wHAT e-paper displays](https://github.com/pimoroni/inky)
+* [SSD1675 EPD driver](https://github.com/wezm/ssd1675)
 
 ## License
 
-`ssd1675` is dual licenced under:
+`il0373` is licensed under the `GNU General Public License v3.0 or later`. See [LICENSE](LICENSE) for more info.
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) **or**
-  http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-[crate-docs]: https://docs.rs/ssd1675
+[crate-docs]: https://docs.rs/il0373
 [cross]: https://github.com/rust-embedded/cross
 [embedded-hal]: https://crates.io/crates/embedded-hal
-[Inky pHAT]: https://shop.pimoroni.com/products/inky-phat
-[LICENSE-APACHE]: https://github.com/wezm/ssd1675/blob/master/LICENSE-APACHE
-[LICENSE-MIT]: https://github.com/wezm/ssd1675/blob/master/LICENSE-MIT
+[Adafruit Tri-Color eInk]: https://www.adafruit.com/product/4086
+[LICENSE]: https://github.com/gpgreen/il0373/blob/master/LICENSE
 [IL0373]: http://www.solomon-systech.com/en/product/advanced-display/bistable-display-driver-ic/IL0373/
