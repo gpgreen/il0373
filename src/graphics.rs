@@ -50,9 +50,9 @@ where
     /// Clear the buffers, filling them a single color.
     pub fn clear(&mut self, color: Color) {
         let (black, red) = match color {
-            Color::White => (0xFF, 0x00),
-            Color::Black => (0x00, 0x00),
-            Color::Red => (0xFF, 0xFF),
+            Color::White => (0xFF, 0xFF),
+            Color::Black => (0x00, 0xFF),
+            Color::Red => (0xFF, 0x00),
         };
 
         for byte in &mut self.black_buffer.iter_mut() {
@@ -78,15 +78,15 @@ where
         match color {
             Color::Black => {
                 self.black_buffer[index] &= !bit;
-                self.red_buffer[index] &= !bit;
+                self.red_buffer[index] |= bit;
             }
             Color::White => {
                 self.black_buffer[index] |= bit;
-                self.red_buffer[index] &= !bit;
+                self.red_buffer[index] |= bit;
             }
             Color::Red => {
                 self.black_buffer[index] |= bit;
-                self.red_buffer[index] |= bit;
+                self.red_buffer[index] &= !bit;
             }
         }
     }
@@ -196,7 +196,7 @@ mod tests {
         fn busy_wait(&self) {}
     }
 
-    fn build_mock_display<'a>() -> Display<'a, MockInterface> {
+    fn build_mock_display() -> Display<MockInterface> {
         let interface = MockInterface::new();
         let dimensions = Dimensions {
             rows: ROWS,

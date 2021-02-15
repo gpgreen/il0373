@@ -228,10 +228,9 @@ impl Command {
 		pack!(buf, 0x50, [vbd | ddx | cdi])
 	    }
 	    ResolutionSetting(horiz, vertical) => {
-		let hres = horiz << 3;
 		let vres_hi = ((vertical & 0x80) >> 7) as u8;
 		let vres_lo = (vertical & 0x7F) as u8;
-		pack!(buf, 0x61, [hres, vres_hi, vres_lo])
+		pack!(buf, 0x61, [horiz, vres_hi, vres_lo])
 	    }
 	    VCMDCSetting(vcom_dc) => {
 		debug_assert!(vcom_dc <= 0b11_1010);
@@ -349,10 +348,7 @@ mod tests {
     fn test_command_execute() {
         let mut interface = MockInterface::new();
         let b = 0xCF;
-        let command = Command::PanelSetting(DisplayResolution::R160x296,
-					    false, false,
-					    DataEntryMode::IncrementYIncrementX,
-					    true, true);
+        let command = Command::PanelSetting(DisplayResolution::R160x296);
 
         command.execute(&mut interface).unwrap();
         assert_eq!(

@@ -4,7 +4,7 @@ use hal;
 // Section 15.2 of the HINK-E0213A07 data sheet says to hold for 10ms
 const RESET_DELAY_MS: u8 = 10;
 
-/// Trait implemented by displays to provide implemenation of core functionality.
+/// Trait implemented by displays to provide implementation of core functionality.
 pub trait DisplayInterface {
     type Error;
 
@@ -84,7 +84,7 @@ pub trait DisplayInterface {
 pub struct Interface<SPI, CS, BUSY, DC, RESET> {
     /// SPI interface
     spi: SPI,
-    /// CS (chip select) for SPI (output)
+    /// Chip Select, low active (output)
     cs: CS,
     /// Active low busy pin (input)
     busy: BUSY,
@@ -103,10 +103,10 @@ where
     RESET: hal::digital::v2::OutputPin,
 {
     /// Create a new Interface from embedded hal traits.
-    pub fn new(spi: SPI, cs: CS, busy: BUSY, dc: DC, reset: RESET) -> Self {
+    pub fn new(spi: SPI, cs:CS, busy: BUSY, dc: DC, reset: RESET) -> Self {
         Self {
             spi,
-            cs,
+	    cs,
             busy,
             dc,
             reset,
@@ -114,9 +114,7 @@ where
     }
 
     fn write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
-        // Select the controller with chip select (CS)
-        // self.cs.set_low();
-
+	self.cs.set_low().ok();
         // Linux has a default limit of 4096 bytes per SPI transfer
         // https://github.com/torvalds/linux/blob/ccda4af0f4b92f7b4c308d3acc262f4a7e3affad/drivers/spi/spidev.c#L93
         if cfg!(target_os = "linux") {
@@ -128,7 +126,7 @@ where
         }
 
         // Release the controller
-        // self.cs.set_high();
+        self.cs.set_high().ok();
 
         Ok(())
     }
@@ -164,16 +162,20 @@ where
     }
 
     fn send_command(&mut self, command: u8) -> Result<(), Self::Error> {
+	self.cs.set_low().unwrap();
         self.dc.set_low().unwrap();
         self.write(&[command])?;
         self.dc.set_high().unwrap();
-
+	self.cs.set_high().unwrap();
         Ok(())
     }
 
     fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+	self.cs.set_low().unwrap();
         self.dc.set_high().unwrap();
-        self.write(data)
+        let r = self.write(data);
+	self.cs.set_high().unwrap();
+	r
     }
 
     fn busy_wait(&self) {

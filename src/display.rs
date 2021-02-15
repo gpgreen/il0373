@@ -1,5 +1,3 @@
-extern crate libm;
-
 use hal;
 
 use command::{BufCommand, Command, DataPolarity, DataInterval};
@@ -72,8 +70,6 @@ where
         delay: &mut D,
     ) -> Result<(), I::Error> {
         self.interface.reset(delay);
-        self.interface.busy_wait();
-
         self.init(delay)
     }
 
@@ -91,7 +87,9 @@ where
         self.config.pll.execute(&mut self.interface)?;
         Command::VCMDCSetting(0xA).execute(&mut self.interface)?;
 	delay.delay_ms(20);
-	Command::ResolutionSetting(self.config.dimensions.cols, self.config.dimensions.rows);
+	Command::ResolutionSetting(
+	    self.config.dimensions.cols, self.config.dimensions.rows)
+	    .execute(&mut self.interface)?;
 
         Ok(())
     }
@@ -107,12 +105,10 @@ where
         delay: &mut D,
     ) -> Result<(), I::Error> {
         // Write the B/W RAM
-        let buf_limit = libm::ceilf((self.rows() * self.cols() as u16) as f32 / 8.) as usize;
-        Command::DataStartTransmission1.execute(&mut self.interface)?;
+        let buf_limit = ((self.rows() * self.cols() as u16) as u32 / 8) as usize;
         BufCommand::WriteBlackData(&black[..buf_limit]).execute(&mut self.interface)?;
 
         // Write the Red RAM
-        Command::DataStartTransmission2.execute(&mut self.interface)?;
         BufCommand::WriteRedData(&red[..buf_limit]).execute(&mut self.interface)?;
 
         // Kick off the display update

@@ -3,8 +3,7 @@ use display::{self, Dimensions, Rotation};
 
 /// Builder for constructing a display Config.
 ///
-/// Dimensions must supplied, all other settings will use a default value if not supplied. However
-/// it's likely that LUT values will need to be supplied to successfully use a display.
+/// Dimensions must supplied, all other settings will use a default value if not supplied.
 ///
 /// ### Example
 ///
@@ -18,7 +17,7 @@ use display::{self, Dimensions, Rotation};
 ///     })
 ///     .rotation(Rotation::Rotate270)
 ///     .build()
-///     .expect("invalid configuration");
+///     .expect("columns must be evenly divisible by 8");
 /// ```
 pub struct Builder {
     power_setting: Command,
@@ -112,8 +111,8 @@ impl Builder {
     /// successfully build a Config.
     pub fn dimensions(self, dimensions: Dimensions) -> Self {
         assert!(
-            dimensions.cols % 8 == 0,
-            "columns must be evenly divisible by 8"
+            dimensions.cols % 4 == 0,
+            "columns must be evenly divisible by 4"
         );
         assert!(
             dimensions.rows <= display::MAX_GATE_OUTPUTS,
