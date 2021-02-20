@@ -26,11 +26,7 @@ where
     ///
     /// B/W and Red buffers for drawing into must be supplied. These should be `rows` * `cols` in
     /// length.
-    pub fn new(
-        display: Display<I>,
-        black_buffer: &'a mut [u8],
-        red_buffer: &'a mut [u8],
-    ) -> Self {
+    pub fn new(display: Display<I>, black_buffer: &'a mut [u8], red_buffer: &'a mut [u8]) -> Self {
         GraphicDisplay {
             display,
             black_buffer,

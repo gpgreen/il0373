@@ -52,7 +52,7 @@ impl Default for Builder {
             power_setting: Command::PowerSetting(0x2b, 0x2b, 0x9),
             booster_soft_start: Command::BoosterSoftStart(0x17, 0x17, 0x17),
             panel_setting: Command::PanelSetting(DisplayResolution::R160x296), // 0xCF
-	    pll: Command::PLLControl(0x29),				  // 0x29
+            pll: Command::PLLControl(0x29),                                    // 0x29
             dimensions: None,
             rotation: Rotation::default(),
         }
@@ -145,7 +145,7 @@ impl Builder {
             power_setting: self.power_setting,
             booster_soft_start: self.booster_soft_start,
             panel_setting: self.panel_setting,
-	    pll: self.pll,
+            pll: self.pll,
             dimensions: self.dimensions.ok_or_else(|| BuilderError {})?,
             rotation: self.rotation,
         })

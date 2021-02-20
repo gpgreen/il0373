@@ -3,7 +3,7 @@
 //! IL0373 ePaper Display Driver
 //!
 //! For a complete example see
-//! [the Raspberry Pi Inky pHAT example](https://github.com/wezm/ssd1675/blob/master/examples/raspberry_pi_inky_phat.rs).
+//! [the nucleo-f103rb example](https://github.com/gpgreen/stm32_eink/blob/master/src/main.rs).
 //!
 //! ### Usage
 //!

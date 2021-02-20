@@ -1,6 +1,6 @@
 use hal;
 
-use command::{BufCommand, Command, DataPolarity, DataInterval};
+use command::{BufCommand, Command, DataInterval, DataPolarity};
 use config::Config;
 use interface::DisplayInterface;
 
@@ -75,21 +75,23 @@ where
 
     /// Initialise the controller
     fn init<D: hal::blocking::delay::DelayMs<u8>>(
-	&mut self,
-	delay: &mut D) -> Result<(), I::Error> {
-	self.config.power_setting.execute(&mut self.interface)?;
-	self.config.booster_soft_start.execute(&mut self.interface)?;
-	Command::PowerOn.execute(&mut self.interface)?;
-	delay.delay_ms(200);
+        &mut self,
+        delay: &mut D,
+    ) -> Result<(), I::Error> {
+        self.config.power_setting.execute(&mut self.interface)?;
+        self.config
+            .booster_soft_start
+            .execute(&mut self.interface)?;
+        Command::PowerOn.execute(&mut self.interface)?;
+        delay.delay_ms(200);
         self.config.panel_setting.execute(&mut self.interface)?;
-	Command::VCOMDataIntervalSetting(
-	    0x0, DataPolarity::Both, DataInterval::V10).execute(&mut self.interface)?;
+        Command::VCOMDataIntervalSetting(0x0, DataPolarity::Both, DataInterval::V10)
+            .execute(&mut self.interface)?;
         self.config.pll.execute(&mut self.interface)?;
         Command::VCMDCSetting(0xA).execute(&mut self.interface)?;
-	delay.delay_ms(20);
-	Command::ResolutionSetting(
-	    self.config.dimensions.cols, self.config.dimensions.rows)
-	    .execute(&mut self.interface)?;
+        delay.delay_ms(20);
+        Command::ResolutionSetting(self.config.dimensions.cols, self.config.dimensions.rows)
+            .execute(&mut self.interface)?;
 
         Ok(())
     }
@@ -125,12 +127,12 @@ where
 
     /// power down
     pub fn power_down(&mut self) -> Result<(), I::Error> {
-	Command::VCOMDataIntervalSetting(
-	    0x0, DataPolarity::BWOnly, DataInterval::V10).execute(&mut self.interface)?;
+        Command::VCOMDataIntervalSetting(0x0, DataPolarity::BWOnly, DataInterval::V10)
+            .execute(&mut self.interface)?;
         Command::VCMDCSetting(0).execute(&mut self.interface)?;
         Command::PowerOff.execute(&mut self.interface)
     }
-	
+
     /// Enter deep sleep mode.
     ///
     /// This puts the display controller into a low power mode. `reset` must be called to wake it

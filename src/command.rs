@@ -122,37 +122,37 @@ pub enum BufCommand<'buf> {
 /// let (command, data) = pack!(buf, 0x3C, [0x12, 0x34]);
 macro_rules! pack {
     ($buf:ident, $cmd:expr,[]) => {
-        ($cmd, &$buf[..0])
+        ($cmd, &mut $buf[..0])
     };
     ($buf:ident, $cmd:expr,[$arg0:expr]) => {{
         $buf[0] = $arg0;
-        ($cmd, &$buf[..1])
+        ($cmd, &mut $buf[..1])
     }};
     ($buf:ident, $cmd:expr,[$arg0:expr, $arg1:expr]) => {{
         $buf[0] = $arg0;
         $buf[1] = $arg1;
-        ($cmd, &$buf[..2])
+        ($cmd, &mut $buf[..2])
     }};
     ($buf:ident, $cmd:expr,[$arg0:expr, $arg1:expr, $arg2:expr]) => {{
         $buf[0] = $arg0;
         $buf[1] = $arg1;
         $buf[2] = $arg2;
-        ($cmd, &$buf[..3])
+        ($cmd, &mut $buf[..3])
     }};
     ($buf:ident, $cmd:expr,[$arg0:expr, $arg1:expr, $arg2:expr, $arg3:expr]) => {{
         $buf[0] = $arg0;
         $buf[1] = $arg1;
         $buf[2] = $arg2;
         $buf[3] = $arg3;
-        ($cmd, &$buf[..4])
+        ($cmd, &mut $buf[..4])
     }};
     ($buf:ident, $cmd:expr,[$arg0:expr, $arg1:expr, $arg2:expr, $arg3:expr, $arg4:expr]) => {{
         $buf[0] = $arg0;
         $buf[1] = $arg1;
         $buf[2] = $arg2;
         $buf[3] = $arg3;
-	$buf[4] = $arg4;
-        ($cmd, &$buf[..5])
+        $buf[4] = $arg4;
+        ($cmd, &mut $buf[..5])
     }};
 }
 
@@ -163,79 +163,79 @@ impl Command {
 
         let mut buf = [0u8; 5];
         let (command, data) = match *self {
-	    PanelSetting(resolution) => {
-		let res = match resolution {
-		    self::DisplayResolution::R96x230 => 0b0000_0000,
-		    self::DisplayResolution::R96x252 => 0b0100_0000,
-		    self::DisplayResolution::R128x296 => 0b1000_0000,
-		    self::DisplayResolution::R160x296 => 0b1100_0000,
-		};
-		pack!(buf, 0x0, [res | 0b001111])
-	    }
-	    PowerSetting(vdh, vdl, vdhr) => {
-		debug_assert!(vdh < 64);
-		debug_assert!(vdl < 64);
-		debug_assert!(vdhr < 64);
-		pack!(buf, 0x1, [0x3, 0x0, vdh, vdl, vdhr])
-	    }
-	    PowerOff => {
-		pack!(buf, 0x3, [])
-	    }
-	    PowerOn => {
-		pack!(buf, 0x4, [])
-	    }
-	    BoosterSoftStart(phase_a, phase_b, phase_c) => {
-		pack!(buf, 0x6, [phase_a, phase_b, phase_c])
-	    }
-	    DeepSleep => {
-		pack!(buf, 0x8, [0xa5])
-	    }
-	    DataStop => {
-		pack!(buf, 0x11, [])
-	    }
-	    DisplayRefresh => {
-		pack!(buf, 0x12, [])
-	    }
-	    PLLControl(clock) => {
-		pack!(buf, 0x30, [clock])
-	    }
-	    VCOMDataIntervalSetting(border_data, data_polarity, interval) => {
-		debug_assert!(border_data < 4);
-		let vbd = border_data << 6;
-		let ddx = match data_polarity {
-		    DataPolarity::BWOnly => 0b01_0000,
-		    DataPolarity::RedOnly => 0b10_0000,
-		    DataPolarity::Both => 0b11_0000,
-		};
-		let cdi = match interval {
-		    DataInterval::V2 => 0b1111,
-		    DataInterval::V3 => 0b1110,
-		    DataInterval::V4 => 0b1101,
-		    DataInterval::V5 => 0b1100,
-		    DataInterval::V6 => 0b1011,
-		    DataInterval::V7 => 0b1010,
-		    DataInterval::V8 => 0b1001,
-		    DataInterval::V9 => 0b1000,
-		    DataInterval::V10 => 0b0111,
-		    DataInterval::V11 => 0b0110,
-		    DataInterval::V12 => 0b0101,
-		    DataInterval::V13 => 0b0100,
-		    DataInterval::V14 => 0b0011,
-		    DataInterval::V15 => 0b0010,
-		    DataInterval::V16 => 0b0001,
-		    DataInterval::V17 => 0b0000,
-		};
-		pack!(buf, 0x50, [vbd | ddx | cdi])
-	    }
-	    ResolutionSetting(horiz, vertical) => {
-		let vres_hi = ((vertical & 0x80) >> 7) as u8;
-		let vres_lo = (vertical & 0x7F) as u8;
-		pack!(buf, 0x61, [horiz, vres_hi, vres_lo])
-	    }
-	    VCMDCSetting(vcom_dc) => {
-		debug_assert!(vcom_dc <= 0b11_1010);
-		pack!(buf, 0x82, [vcom_dc])
-	    }
+            PanelSetting(resolution) => {
+                let res = match resolution {
+                    self::DisplayResolution::R96x230 => 0b0000_0000,
+                    self::DisplayResolution::R96x252 => 0b0100_0000,
+                    self::DisplayResolution::R128x296 => 0b1000_0000,
+                    self::DisplayResolution::R160x296 => 0b1100_0000,
+                };
+                pack!(buf, 0x0, [res | 0b001111])
+            }
+            PowerSetting(vdh, vdl, vdhr) => {
+                debug_assert!(vdh < 64);
+                debug_assert!(vdl < 64);
+                debug_assert!(vdhr < 64);
+                pack!(buf, 0x1, [0x3, 0x0, vdh, vdl, vdhr])
+            }
+            PowerOff => {
+                pack!(buf, 0x3, [])
+            }
+            PowerOn => {
+                pack!(buf, 0x4, [])
+            }
+            BoosterSoftStart(phase_a, phase_b, phase_c) => {
+                pack!(buf, 0x6, [phase_a, phase_b, phase_c])
+            }
+            DeepSleep => {
+                pack!(buf, 0x8, [0xa5])
+            }
+            DataStop => {
+                pack!(buf, 0x11, [])
+            }
+            DisplayRefresh => {
+                pack!(buf, 0x12, [])
+            }
+            PLLControl(clock) => {
+                pack!(buf, 0x30, [clock])
+            }
+            VCOMDataIntervalSetting(border_data, data_polarity, interval) => {
+                debug_assert!(border_data < 4);
+                let vbd = border_data << 6;
+                let ddx = match data_polarity {
+                    DataPolarity::BWOnly => 0b01_0000,
+                    DataPolarity::RedOnly => 0b10_0000,
+                    DataPolarity::Both => 0b11_0000,
+                };
+                let cdi = match interval {
+                    DataInterval::V2 => 0b1111,
+                    DataInterval::V3 => 0b1110,
+                    DataInterval::V4 => 0b1101,
+                    DataInterval::V5 => 0b1100,
+                    DataInterval::V6 => 0b1011,
+                    DataInterval::V7 => 0b1010,
+                    DataInterval::V8 => 0b1001,
+                    DataInterval::V9 => 0b1000,
+                    DataInterval::V10 => 0b0111,
+                    DataInterval::V11 => 0b0110,
+                    DataInterval::V12 => 0b0101,
+                    DataInterval::V13 => 0b0100,
+                    DataInterval::V14 => 0b0011,
+                    DataInterval::V15 => 0b0010,
+                    DataInterval::V16 => 0b0001,
+                    DataInterval::V17 => 0b0000,
+                };
+                pack!(buf, 0x50, [vbd | ddx | cdi])
+            }
+            ResolutionSetting(horiz, vertical) => {
+                let vres_hi = ((vertical & 0x80) >> 7) as u8;
+                let vres_lo = (vertical & 0x7F) as u8;
+                pack!(buf, 0x61, [horiz, vres_hi, vres_lo])
+            }
+            VCMDCSetting(vcom_dc) => {
+                debug_assert!(vcom_dc <= 0b11_1010);
+                pack!(buf, 0x82, [vcom_dc])
+            }
             _ => unimplemented!(),
         };
 
@@ -351,9 +351,6 @@ mod tests {
         let command = Command::PanelSetting(DisplayResolution::R160x296);
 
         command.execute(&mut interface).unwrap();
-        assert_eq!(
-            interface.data(),
-            &[0x00, b]
-        );
+        assert_eq!(interface.data(), &[0x00, b]);
     }
 }
