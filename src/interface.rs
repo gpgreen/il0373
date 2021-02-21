@@ -89,7 +89,7 @@ pub struct Interface<SPI, CS, BUSY, DC, RESET> {
     busy: BUSY,
     /// Data/Command Control Pin (High for data, Low for command) (output)
     dc: DC,
-    /// Pin for reseting the controller (output)
+    /// Pin for resetting the controller (output)
     reset: RESET,
 }
 
@@ -102,10 +102,10 @@ where
     RESET: hal::digital::v2::OutputPin,
 {
     /// Create a new Interface from embedded hal traits.
-    pub fn new(spi: SPI, cs:CS, busy: BUSY, dc: DC, reset: RESET) -> Self {
+    pub fn new(spi: SPI, cs: CS, busy: BUSY, dc: DC, reset: RESET) -> Self {
         Self {
             spi,
-	    cs,
+            cs,
             busy,
             dc,
             reset,
@@ -113,7 +113,7 @@ where
     }
 
     fn write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
-	self.cs.set_low().ok();
+        self.cs.set_low().ok();
         // Linux has a default limit of 4096 bytes per SPI transfer
         // https://github.com/torvalds/linux/blob/ccda4af0f4b92f7b4c308d3acc262f4a7e3affad/drivers/spi/spidev.c#L93
         if cfg!(target_os = "linux") {
@@ -145,7 +145,7 @@ where
     type Error = SPI::Error;
 
     fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D) {
-	// do a hardware reset 3 times
+        // do a hardware reset 3 times
         self.reset.set_low().unwrap();
         delay.delay_ms(RESET_DELAY_MS);
         self.reset.set_high().unwrap();
