@@ -129,14 +129,19 @@ where
     RESET: hal::digital::v2::OutputPin,
 {
     /// Create a new Interface from embedded hal traits.
-    pub fn new(spi: SPI, cs: CS, busy: BUSY, dc: DC, reset: RESET) -> Self {
+    pub fn new(spi: SPI, pins: (CS, BUSY, DC, RESET)) -> Self {
         Self {
-            spi,
-            cs,
-            busy,
-            dc,
-            reset,
+            spi: spi,
+            cs: pins.0,
+            busy: pins.1,
+            dc: pins.2,
+            reset: pins.3,
         }
+    }
+
+    /// release the spi and pins
+    pub fn release(self) -> (SPI, (CS, BUSY, DC, RESET)) {
+        (self.spi, (self.cs, self.busy, self.dc, self.reset))
     }
 
     fn write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {

@@ -176,11 +176,11 @@ where
 
 /// A display that uses SRAM for backing buffers for drawing into and updating the display from.
 ///
-/// When the `graphics` feature is enabled `GraphicDisplaySram` implements the `DrawTarget` trait from
+/// When the `graphics` feature is enabled `SramGraphicDisplay` implements the `DrawTarget` trait from
 /// [embedded-graphics](https://crates.io/crates/embedded-graphics). This allows basic shapes and
 /// text to be drawn on the display.
 #[cfg(feature = "sram")]
-pub struct GraphicDisplaySram<I>
+pub struct SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {
@@ -191,14 +191,14 @@ where
 }
 
 #[cfg(feature = "sram")]
-impl<I> GraphicDisplaySram<I>
+impl<I> SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {
-    /// Promote a `Display` to a `GraphicDisplaySram`.
+    /// Promote a `Display` to a `SramGraphicDisplay`.
     pub fn new(display: Display<I>) -> Self {
         let sz = ((display.rows() * display.cols() as u16) as u32 / 8) as u16;
-        GraphicDisplaySram {
+        SramGraphicDisplay {
             display: display,
             buffer_size: sz,
             black_address: 0,
@@ -285,7 +285,7 @@ where
 }
 
 #[cfg(feature = "sram")]
-impl<I> Deref for GraphicDisplaySram<I>
+impl<I> Deref for SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {
@@ -297,7 +297,7 @@ where
 }
 
 #[cfg(feature = "sram")]
-impl<I> DerefMut for GraphicDisplaySram<I>
+impl<I> DerefMut for SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {
@@ -307,7 +307,7 @@ where
 }
 
 #[cfg(all(feature = "graphics", feature = "sram"))]
-impl<I> DrawTarget<Color> for GraphicDisplaySram<I>
+impl<I> DrawTarget<Color> for SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {

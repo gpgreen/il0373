@@ -52,6 +52,8 @@ fn main() -> Result<(), std::convert::Infallible> {
         .expect("reset Direction");
     reset.set_value(1).expect("reset Value set to 1");
 
+    let pins: (cs, busy, dc, reset);
+
     // need some buffers
     let mut black = [0u8; 212 * 104 / 8];
     let mut red = [0u8; 212 * 104 / 8];
@@ -67,7 +69,7 @@ fn main() -> Result<(), std::convert::Infallible> {
         .unwrap();
 
     // interface
-    let controller = Interface::new(spi, cs, busy, dc, reset);
+    let controller = Interface::new(spi, pins);
 
     // display
     let display = Display::new(controller, config);

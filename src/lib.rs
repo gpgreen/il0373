@@ -13,25 +13,29 @@
 //! * A [display configuration][Config]
 //! * A [Display]
 //!
-//! The [Interface] captures the details of the hardware connection to the IL0373 controller. This
-//! includes an SPI device and some GPIO pins. The IL0373 can control many different displays that
-//! vary in dimensions, rotation, and driving characteristics. The [Config] captures these details.
-//! To aid in constructing the [Config] there is a [Builder] interface. Finally when you have an
-//! interface and a [Config] a [Display] instance can be created.
+//! The [Interface] captures the details of the hardware connection to
+//! the IL0373 controller. This includes an SPI device and some GPIO
+//! pins. The IL0373 can control many different displays that vary in
+//! dimensions, rotation, and driving characteristics. The [Config]
+//! captures these details.  To aid in constructing the [Config] there
+//! is a [Builder] interface. Finally when you have an interface and a
+//! [Config] a [Display] instance can be created.
 //!
-//! This driver can work with an SRAM device, to keep the display
-//! buffer on that device, which reduces the memory footprint on the MCU. The
-//! SRAM device must be on the the same SPI port as the il0373. To use this option,
-//! use the feature `sram`. Instead of using a [Interface] and [GraphicDisplay], use
-//! a [SpiBus], and an associated [SramDisplayInterface], then use
-//! a [GraphicDisplaySram].
+//!
+//! This driver can work with an SRAM device, to store the display
+//! buffer on that device, to reduce the memory footprint on the
+//! MCU. The SRAM device must be on the the same SPI port as the
+//! il0373. For this option, use the feature `sram`. Instead of using
+//! a [Interface] and [GraphicDisplay], use a [SpiBus], and an
+//! associated [SramDisplayInterface], then use a
+//! [SramGraphicDisplay].
 //!
 //!
 //! Optionally the [Display] can be promoted to a [GraphicDisplay],
 //! which allows it to use the functionality from the
 //! [embedded-graphics crate][embedded-graphics]. The plain display
-//! only provides the ability to update the display by passing
-//! black/white and red buffers.
+//! only provides the ability to update the display, either using RAM
+//! buffers, or the sram device.
 //!
 //! To update the display you will typically follow this flow:
 //!
@@ -45,7 +49,7 @@
 //! [SramDisplayInterface]: interface/struct.SramDisplayInterface.html
 //! [Display]: display/struct.Display.html
 //! [GraphicDisplay]: display/struct.GraphicDisplay.html
-//! [GraphicDisplaySram]: display/struct.GraphicDisplaySram.html
+//! [SramGraphicDisplay]: display/struct.SramGraphicDisplay.html
 //! [Config]: config/struct.Config.html
 //! [Builder]: config/struct.Builder.html
 //! [embedded-graphics]: https://crates.io/crates/embedded-graphics
@@ -68,7 +72,7 @@ pub use config::Builder;
 pub use display::{Dimensions, Display, Rotation};
 pub use graphics::GraphicDisplay;
 #[cfg(feature = "sram")]
-pub use graphics::GraphicDisplaySram;
+pub use graphics::SramGraphicDisplay;
 pub use interface::DisplayInterface;
 pub use interface::Interface;
 #[cfg(feature = "sram")]

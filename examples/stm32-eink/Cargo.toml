@@ -1,0 +1,40 @@
+[package]
+authors = ["Greg Green <ggreen@bit-builder.com>"]
+edition = "2018"
+readme = "README.md"
+name = "stm32-eink"
+version = "0.1.0"
+
+[dependencies]
+nb = "0.1.3"
+cortex-m = "0.7.1"
+cortex-m-rt = "0.6.13"
+cortex-m-semihosting = "0.3.7"
+#panic-halt = "0.2.0"
+#panic-itm = "0.4.2"
+panic-semihosting = "0.5.6"
+embedded-graphics = "0.6.2"
+heapless = "0.6.0"
+
+# hal for board
+nucleo-f103rb = "0.3.0"
+
+[dependencies.il0373]
+path = "../../"
+features = ["sram"]
+
+[dependencies.embedded-hal]
+version = "0.2.4"
+features = ["unproven"]
+
+[patch.crates-io]
+nucleo-f103rb = { path = "../../../nucleo-f103rb" }
+
+[profile.dev]
+incremental = false
+codegen-units = 1
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
