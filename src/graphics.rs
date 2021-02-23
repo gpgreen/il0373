@@ -1,12 +1,11 @@
 use color::Color;
 use core::ops::{Deref, DerefMut};
 use display::{Display, Rotation};
-use hal;
 use interface::DisplayInterface;
 
 /// A display that holds buffers for drawing into and updating the display from.
 ///
-/// When the `graphics` feature is enabled `GraphicDisplay` implements the `Draw` trait from
+/// When the `graphics` feature is enabled `GraphicDisplay` implements the `DrawTarget` trait from
 /// [embedded-graphics](https://crates.io/crates/embedded-graphics). This allows basic shapes and
 /// text to be drawn on the display.
 pub struct GraphicDisplay<'a, I>
@@ -33,18 +32,14 @@ where
             red_buffer,
         }
     }
+}
 
-    /// Update the display by writing the buffers to the controller.
-    pub fn update<D: hal::blocking::delay::DelayMs<u8>>(
-        &mut self,
-        delay: &mut D,
-    ) -> Result<(), I::Error> {
-        self.display
-            .update(self.black_buffer, self.red_buffer, delay)
-    }
-
+impl<'a, I> GraphicDisplay<'a, I>
+where
+    I: DisplayInterface,
+{
     /// Clear the buffers, filling them a single color.
-    pub fn clear(&mut self, color: Color) {
+    fn clear(&mut self, color: Color) {
         let (black, red) = match color {
             Color::White => (0xFF, 0xFF),
             Color::Black => (0x00, 0xFF),
@@ -132,6 +127,11 @@ where
 {
     type Error = core::convert::Infallible;
 
+    fn clear(&mut self, color: Color) -> Result<(), Self::Error> {
+        self.clear(color);
+        Ok(())
+    }
+
     fn draw_pixel(
         &mut self,
         Pixel(Point { x, y }, color): Pixel<Color>,
@@ -143,6 +143,156 @@ where
             self.set_pixel(x, y, color)
         }
         Ok(())
+    }
+
+    fn size(&self) -> Size {
+        match self.rotation() {
+            Rotation::Rotate0 | Rotation::Rotate180 => {
+                Size::new(self.cols().into(), self.rows().into())
+            }
+            Rotation::Rotate90 | Rotation::Rotate270 => {
+                Size::new(self.rows().into(), self.cols().into())
+            }
+        }
+    }
+}
+
+/// A display that uses SRAM for backing buffers for drawing into and updating the display from.
+///
+/// When the `graphics` feature is enabled `GraphicDisplaySRAM` implements the `DrawTarget` trait from
+/// [embedded-graphics](https://crates.io/crates/embedded-graphics). This allows basic shapes and
+/// text to be drawn on the display.
+pub struct GraphicDisplaySRAM<I>
+where
+    I: DisplayInterface,
+{
+    display: Display<I>,
+    buffer_size: u16,
+    black_address: u16,
+    red_address: u16,
+}
+
+impl<I> GraphicDisplaySRAM<I>
+where
+    I: DisplayInterface,
+{
+    /// Promote a `Display` to a `GraphicDisplaySRAM`.
+    pub fn new(display: Display<I>) -> Self {
+        let sz = ((display.rows() * display.cols() as u16) as u32 / 8) as u16;
+        GraphicDisplaySRAM {
+            display: display,
+            buffer_size: sz,
+            black_address: 0,
+            red_address: sz,
+        }
+    }
+
+    /// Clear the buffers, filling them a single color.
+    fn clear(&mut self, color: Color) -> Result<(), I::Error> {
+        let (black, red) = match color {
+            Color::White => (0xFF, 0xFF),
+            Color::Black => (0x00, 0xFF),
+            Color::Red => (0xFF, 0x00),
+        };
+
+        self.display
+            .interface()
+            .sram_clear(self.black_address, self.buffer_size, black)?;
+        self.display
+            .interface()
+            .sram_clear(self.red_address, self.buffer_size, red)?;
+        Ok(())
+    }
+
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color) -> Result<(), I::Error> {
+        let (index, bit) = rotation(
+            x,
+            y,
+            self.cols() as u32,
+            self.rows() as u32,
+            self.rotation(),
+        );
+        let index = index as u16;
+
+        // get the existing buffer bytes
+        let mut buf: [u8; 1] = [0];
+        self.display
+            .interface()
+            .sram_read(index + self.black_address, &mut buf)?;
+        let mut black = buf[0];
+        self.display
+            .interface()
+            .sram_read(index + self.red_address, &mut buf)?;
+        let mut red = buf[0];
+        match color {
+            Color::Black => {
+                black &= !bit;
+                red |= bit;
+            }
+            Color::White => {
+                black |= bit;
+                red |= bit;
+            }
+            Color::Red => {
+                black |= bit;
+                red &= !bit;
+            }
+        }
+        // write the new buffer bytes
+        buf[0] = black;
+        self.display
+            .interface()
+            .sram_write(index + self.black_address, &mut buf)?;
+        buf[0] = red;
+        self.display
+            .interface()
+            .sram_write(index + self.red_address, &mut buf)?;
+        Ok(())
+    }
+}
+
+impl<I> Deref for GraphicDisplaySRAM<I>
+where
+    I: DisplayInterface,
+{
+    type Target = Display<I>;
+
+    fn deref(&self) -> &Display<I> {
+        &self.display
+    }
+}
+
+impl<I> DerefMut for GraphicDisplaySRAM<I>
+where
+    I: DisplayInterface,
+{
+    fn deref_mut(&mut self) -> &mut Display<I> {
+        &mut self.display
+    }
+}
+
+#[cfg(feature = "graphics")]
+impl<I> DrawTarget<Color> for GraphicDisplaySRAM<I>
+where
+    I: DisplayInterface,
+{
+    type Error = I::Error;
+
+    fn draw_pixel(
+        &mut self,
+        Pixel(Point { x, y }, color): Pixel<Color>,
+    ) -> Result<(), Self::Error> {
+        let sz = self.size();
+        let x = x as u32;
+        let y = y as u32;
+        if x < sz.width && y < sz.height {
+            self.set_pixel(x, y, color)?;
+        }
+        Ok(())
+    }
+
+    fn clear(&mut self, color: Color) -> Result<(), Self::Error> {
+        self.clear(color)
     }
 
     fn size(&self) -> Size {

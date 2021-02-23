@@ -1,6 +1,6 @@
 use hal;
 
-use command::{BufCommand, Command, DataInterval, DataPolarity};
+use command::{Command, DataInterval, DataPolarity};
 use config::Config;
 use interface::DisplayInterface;
 
@@ -73,7 +73,7 @@ where
         self.init(delay)
     }
 
-    /// Initialise the controller
+    /// Initialize the controller
     fn init<D: hal::blocking::delay::DelayMs<u8>>(
         &mut self,
         delay: &mut D,
@@ -100,22 +100,16 @@ where
     ///
     /// This method will write the two buffers to the controller then initiate the update
     /// display command. Currently it will busy wait until the update has completed.
-    pub fn update<D: hal::blocking::delay::DelayMs<u8>>(
-        &mut self,
-        black: &[u8],
-        red: &[u8],
-        delay: &mut D,
-    ) -> Result<(), I::Error> {
-        // Write the B/W RAM
-        let buf_limit = ((self.rows() * self.cols() as u16) as u32 / 8) as usize;
-        BufCommand::WriteBlackData(&black[..buf_limit]).execute(&mut self.interface)?;
+    pub fn update(&mut self, black: &[u8], red: &[u8]) -> Result<(), I::Error> {
+        // Write the B/W
+        let buf_limit = ((self.rows() * self.cols() as u16) as u32 / 8) as u16;
+        self.interface.epd_update_data(0, buf_limit, &black)?;
 
-        // Write the Red RAM
-        BufCommand::WriteRedData(&red[..buf_limit]).execute(&mut self.interface)?;
+        // Write the Red
+        self.interface.epd_update_data(1, buf_limit, &red)?;
 
         // Kick off the display update
         Command::DisplayRefresh.execute(&mut self.interface)?;
-        delay.delay_ms(100);
         // TODO: We don't really need to wait here... the program can go off and do other things
         // and only busy wait if it wants to talk to the display again. Could possibly treat
         // the interface like a smart pointer in which deref would wait until it's not
@@ -154,5 +148,10 @@ where
     /// Returns the rotation the display was configured with.
     pub fn rotation(&self) -> Rotation {
         self.config.rotation
+    }
+
+    /// returns the interface
+    pub fn interface(&mut self) -> &mut I {
+        &mut self.interface
     }
 }

@@ -1,3 +1,4 @@
+use command::BufCommand;
 use core::fmt::Debug;
 use hal;
 
@@ -16,6 +17,18 @@ pub trait DisplayInterface {
 
     /// Send data for a command.
     fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error>;
+
+    /// copy display buffer data to epd
+    fn epd_update_data(&mut self, layer: u8, nbytes: u16, buf: &[u8]) -> Result<(), Self::Error>;
+
+    /// read data from sram
+    fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), Self::Error>;
+
+    /// write data to sram
+    fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), Self::Error>;
+
+    /// set area in sram to a value
+    fn sram_clear(&mut self, address: u16, nbytes: u16, val: u8) -> Result<(), Self::Error>;
 
     /// Reset the controller.
     fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D);
@@ -172,10 +185,301 @@ where
         self.write(data)
     }
 
+    fn sram_read(&mut self, _address: u16, _data: &mut [u8]) -> Result<(), Self::Error> {
+        panic!()
+    }
+
+    fn sram_write(&mut self, _address: u16, _data: &[u8]) -> Result<(), Self::Error> {
+        panic!()
+    }
+
+    fn sram_clear(&mut self, _address: u16, _nbytes: u16, _val: u8) -> Result<(), Self::Error> {
+        panic!()
+    }
+
+    fn epd_update_data(&mut self, layer: u8, nbytes: u16, buf: &[u8]) -> Result<(), Self::Error> {
+        let sz: usize = nbytes.into();
+        if layer == 0 {
+            BufCommand::WriteBlackData(&buf[..sz]).execute(self)
+        } else {
+            BufCommand::WriteRedData(&buf[..sz]).execute(self)
+        }
+    }
+
     fn busy_wait(&self) {
         while match self.busy.is_high() {
             Ok(x) => x,
             _ => false,
         } {}
+    }
+}
+
+//const MCPSRAM_RDSR: u8 = 0x05;
+const MCPSRAM_READ: u8 = 0x03;
+const MCPSRAM_WRITE: u8 = 0x02;
+const MCPSRAM_WRSR: u8 = 0x01;
+const K640_SEQUENTIAL_MODE: u8 = 1 << 6;
+
+pub struct SpiBus<SPI, EPDCS, SRAMCS> {
+    spi: SPI,
+    epd_cs: EPDCS,
+    sram_cs: SRAMCS,
+}
+
+impl<SPI, EPDCS, SRAMCS> SpiBus<SPI, EPDCS, SRAMCS>
+where
+    SPI: hal::spi::FullDuplex<u8>,
+    EPDCS: hal::digital::v2::OutputPin,
+    SRAMCS: hal::digital::v2::OutputPin,
+{
+    /// create a new SpiBus from embedded hal traits
+    pub fn new(spi: SPI, mut pins: (EPDCS, SRAMCS)) -> SpiBus<SPI, EPDCS, SRAMCS> {
+        pins.0.set_high().ok();
+        pins.1.set_high().ok();
+        SpiBus {
+            spi: spi,
+            epd_cs: pins.0,
+            sram_cs: pins.1,
+        }
+    }
+
+    /// release the spi and cs pins
+    pub fn release(self) -> (SPI, (EPDCS, SRAMCS)) {
+        (self.spi, (self.epd_cs, self.sram_cs))
+    }
+
+    /// initialize sram device
+    pub fn sram_init(&mut self) -> Result<(), SPI::Error> {
+        self.sram_cs.set_low().ok();
+        self.write(&[0xFF, 0xFF, 0xFF])?;
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+
+    /// set sram device to sequential
+    pub fn sram_seq(&mut self) -> Result<(), SPI::Error> {
+        self.sram_cs.set_low().ok();
+        self.write(&[MCPSRAM_WRSR, K640_SEQUENTIAL_MODE])?;
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+
+    /// write to the sram
+    pub fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), SPI::Error> {
+        self.sram_cs.set_low().ok();
+        let cmd: [u8; 3] = [MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8];
+        self.write(&cmd)?;
+        self.write(data)?;
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+
+    /// read the sram
+    pub fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), SPI::Error> {
+        self.sram_cs.set_low().ok();
+        let cmd: [u8; 3] = [MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8];
+        self.write(&cmd)?;
+        self.transfer(data)?;
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+
+    /// erase buffer in sram
+    pub fn sram_erase(&mut self, address: u16, len: u16, val: u8) -> Result<(), SPI::Error> {
+        self.sram_cs.set_low().ok();
+        let cmd: [u8; 3] = [MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8];
+        self.write(&cmd)?;
+        for _i in 0..len {
+            nb::block!(self.spi.send(val))?;
+            nb::block!(self.spi.read())?;
+        }
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+
+    /// start a buffer transfer from the SRAM to the EPD. This needs the beginning address
+    /// in the SRAM, and the location where they will be sent in the EPD.
+    /// While the location is sent to the EPD, the first byte will be pulled from
+    /// the SRAM at the address specified, this is passed to the sram_epd_move_body fn
+    pub fn sram_epd_move_header(
+        &mut self,
+        address: u16,
+        epd_location: u8,
+    ) -> Result<u8, SPI::Error> {
+        self.sram_cs.set_low().ok();
+        // send address and get first byte of data
+        let cmd: [u8; 3] = [MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8];
+        self.write(&cmd)?;
+        self.epd_cs.set_low().ok();
+        nb::block!(self.spi.send(epd_location))?;
+        let c = nb::block!(self.spi.read())?;
+        Ok(c)
+    }
+
+    /// given the first byte from SRAM from sram_epd_move_header, transfer the rest
+    /// of the bytes to the EPD. These functions are split up because another pin
+    /// must be pulled low between them in the protocol
+    pub fn sram_epd_move_body(&mut self, ch: u8, data_len: u16) -> Result<(), SPI::Error> {
+        let mut c = ch;
+        for _i in 0..data_len {
+            nb::block!(self.spi.send(c))?;
+            c = nb::block!(self.spi.read())?;
+        }
+        self.epd_cs.set_high().ok();
+        self.sram_cs.set_high().ok();
+        Ok(())
+    }
+    /// write to the epaper display
+    pub fn epd_write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
+        self.epd_cs.set_low().ok();
+        for byte in data.iter() {
+            nb::block!(self.spi.send(*byte))?;
+            nb::block!(self.spi.read())?;
+        }
+        self.epd_cs.set_high().ok();
+        Ok(())
+    }
+    /*
+        /// transfer bytes between mcu and epaper display
+        pub fn epd_transfer(&mut self, data: &mut [u8]) -> Result<(), SPI::Error> {
+            self.epd_cs.set_low().ok();
+            self.transfer(data)?;
+            self.epd_cs.set_high().ok();
+            Ok(())
+        }
+    */
+
+    /// low level method to transfer a data array, used by sram and epaper devices
+    fn transfer(&mut self, data: &mut [u8]) -> Result<(), SPI::Error> {
+        for byte in data.iter_mut() {
+            nb::block!(self.spi.send(*byte))?;
+            *byte = nb::block!(self.spi.read())?;
+        }
+        Ok(())
+    }
+
+    /// low level method to transfer a data array, used by sram and epaper devices
+    fn write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
+        for byte in data.iter() {
+            nb::block!(self.spi.send(*byte))?;
+            nb::block!(self.spi.read())?;
+        }
+        Ok(())
+    }
+}
+
+pub struct SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
+    spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
+    busy: BUSY,
+    dc: DC,
+    reset: RESET,
+}
+
+impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
+where
+    SPI: hal::spi::FullDuplex<u8>,
+    EPDCS: hal::digital::v2::OutputPin,
+    SRAMCS: hal::digital::v2::OutputPin,
+    BUSY: hal::digital::v2::InputPin,
+    DC: hal::digital::v2::OutputPin,
+    RESET: hal::digital::v2::OutputPin,
+{
+    /// create a display interface from the embedded hal
+    pub fn new(
+        spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
+        mut pins: (BUSY, DC, RESET),
+    ) -> SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
+        // dc inactive low
+        pins.1.set_low().ok();
+        // reset inactive high
+        pins.2.set_high().ok();
+        SpiDisplayInterface {
+            spi_bus: spi_bus,
+            busy: pins.0,
+            dc: pins.1,
+            reset: pins.2,
+        }
+    }
+
+    /// release the spibus and all the associated pins
+    pub fn release(self) -> (SpiBus<SPI, EPDCS, SRAMCS>, (BUSY, DC, RESET)) {
+        (self.spi_bus, (self.busy, self.dc, self.reset))
+    }
+}
+
+impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> DisplayInterface
+    for SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
+where
+    SPI: hal::spi::FullDuplex<u8>,
+    EPDCS: hal::digital::v2::OutputPin,
+    SRAMCS: hal::digital::v2::OutputPin,
+    BUSY: hal::digital::v2::InputPin,
+    DC: hal::digital::v2::OutputPin,
+    RESET: hal::digital::v2::OutputPin,
+{
+    type Error = SPI::Error;
+
+    fn send_command(&mut self, command: u8) -> Result<(), Self::Error> {
+        self.dc.set_low().ok();
+        self.spi_bus.epd_write(&[command])
+    }
+
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        self.dc.set_high().ok();
+        self.spi_bus.epd_write(data)
+    }
+
+    fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D) {
+        // setup the sram
+        self.spi_bus.sram_init().ok();
+
+        // do a hardware reset 3 times
+        self.reset.set_low().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+        self.reset.set_high().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+        self.reset.set_low().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+        self.reset.set_high().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+        self.reset.set_low().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+        self.reset.set_high().ok();
+        delay.delay_ms(RESET_DELAY_MS);
+
+        self.spi_bus.sram_seq().ok();
+    }
+
+    fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), Self::Error> {
+        self.spi_bus.sram_read(address, data)
+    }
+
+    fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), Self::Error> {
+        self.spi_bus.sram_write(address, data)
+    }
+
+    fn sram_clear(&mut self, address: u16, nbytes: u16, val: u8) -> Result<(), Self::Error> {
+        self.spi_bus.sram_erase(address, nbytes, val)
+    }
+
+    fn busy_wait(&self) {
+        while match self.busy.is_high() {
+            Ok(x) => x,
+            _ => false,
+        } {}
+    }
+
+    fn epd_update_data(&mut self, layer: u8, nbytes: u16, _buf: &[u8]) -> Result<(), Self::Error> {
+        let (epd_location, sram_address) = if layer == 0 {
+            (0x10, 0u16)
+        } else {
+            (0x13, nbytes as u16)
+        };
+        self.dc.set_low().ok();
+        let ch = self
+            .spi_bus
+            .sram_epd_move_header(sram_address, epd_location)?;
+        self.dc.set_high().ok();
+        self.spi_bus.sram_epd_move_body(ch, nbytes)
     }
 }
