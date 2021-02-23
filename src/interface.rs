@@ -18,23 +18,37 @@ pub trait DisplayInterface {
     /// Send data for a command.
     fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error>;
 
-    /// copy display buffer data to epd
-    fn epd_update_data(&mut self, layer: u8, nbytes: u16, buf: &[u8]) -> Result<(), Self::Error>;
-
-    /// read data from sram
-    fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), Self::Error>;
-
-    /// write data to sram
-    fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), Self::Error>;
-
-    /// set area in sram to a value
-    fn sram_clear(&mut self, address: u16, nbytes: u16, val: u8) -> Result<(), Self::Error>;
-
     /// Reset the controller.
     fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D);
 
     /// Wait for the controller to indicate it is not busy.
     fn busy_wait(&self);
+
+    //----- Following is only for buffers in RAM
+    /// copy display buffer data to epd
+    fn epd_update_data(&mut self, layer: u8, nbytes: u16, buf: &[u8]) -> Result<(), Self::Error>;
+
+    //----- Following is only for buffers in SRAM
+    /// copy display buffer data to epd from sram
+    #[cfg(feature = "sram")]
+    fn sram_epd_update_data(
+        &mut self,
+        layer: u8,
+        nbytes: u16,
+        start_address: u16,
+    ) -> Result<(), Self::Error>;
+
+    /// read data from sram
+    #[cfg(feature = "sram")]
+    fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), Self::Error>;
+
+    /// write data to sram
+    #[cfg(feature = "sram")]
+    fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), Self::Error>;
+
+    /// set area in sram to a value
+    #[cfg(feature = "sram")]
+    fn sram_clear(&mut self, address: u16, nbytes: u16, val: u8) -> Result<(), Self::Error>;
 }
 
 /// The hardware interface to a display.
@@ -185,15 +199,28 @@ where
         self.write(data)
     }
 
+    #[cfg(feature = "sram")]
     fn sram_read(&mut self, _address: u16, _data: &mut [u8]) -> Result<(), Self::Error> {
         panic!()
     }
 
+    #[cfg(feature = "sram")]
     fn sram_write(&mut self, _address: u16, _data: &[u8]) -> Result<(), Self::Error> {
         panic!()
     }
 
+    #[cfg(feature = "sram")]
     fn sram_clear(&mut self, _address: u16, _nbytes: u16, _val: u8) -> Result<(), Self::Error> {
+        panic!()
+    }
+
+    #[cfg(feature = "sram")]
+    fn sram_epd_update_data(
+        &mut self,
+        _layer: u8,
+        _nbytes: u16,
+        _start_address: u16,
+    ) -> Result<(), Self::Error> {
         panic!()
     }
 
@@ -215,17 +242,23 @@ where
 }
 
 //const MCPSRAM_RDSR: u8 = 0x05;
+#[cfg(feature = "sram")]
 const MCPSRAM_READ: u8 = 0x03;
+#[cfg(feature = "sram")]
 const MCPSRAM_WRITE: u8 = 0x02;
+#[cfg(feature = "sram")]
 const MCPSRAM_WRSR: u8 = 0x01;
+#[cfg(feature = "sram")]
 const K640_SEQUENTIAL_MODE: u8 = 1 << 6;
 
+#[cfg(feature = "sram")]
 pub struct SpiBus<SPI, EPDCS, SRAMCS> {
     spi: SPI,
     epd_cs: EPDCS,
     sram_cs: SRAMCS,
 }
 
+#[cfg(feature = "sram")]
 impl<SPI, EPDCS, SRAMCS> SpiBus<SPI, EPDCS, SRAMCS>
 where
     SPI: hal::spi::FullDuplex<u8>,
@@ -339,15 +372,6 @@ where
         self.epd_cs.set_high().ok();
         Ok(())
     }
-    /*
-        /// transfer bytes between mcu and epaper display
-        pub fn epd_transfer(&mut self, data: &mut [u8]) -> Result<(), SPI::Error> {
-            self.epd_cs.set_low().ok();
-            self.transfer(data)?;
-            self.epd_cs.set_high().ok();
-            Ok(())
-        }
-    */
 
     /// low level method to transfer a data array, used by sram and epaper devices
     fn transfer(&mut self, data: &mut [u8]) -> Result<(), SPI::Error> {
@@ -368,14 +392,16 @@ where
     }
 }
 
-pub struct SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
+#[cfg(feature = "sram")]
+pub struct SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
     spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
     busy: BUSY,
     dc: DC,
     reset: RESET,
 }
 
-impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
+#[cfg(feature = "sram")]
+impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
 where
     SPI: hal::spi::FullDuplex<u8>,
     EPDCS: hal::digital::v2::OutputPin,
@@ -388,12 +414,12 @@ where
     pub fn new(
         spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
         mut pins: (BUSY, DC, RESET),
-    ) -> SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
+    ) -> SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
         // dc inactive low
         pins.1.set_low().ok();
         // reset inactive high
         pins.2.set_high().ok();
-        SpiDisplayInterface {
+        SramDisplayInterface {
             spi_bus: spi_bus,
             busy: pins.0,
             dc: pins.1,
@@ -407,8 +433,9 @@ where
     }
 }
 
+#[cfg(feature = "sram")]
 impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> DisplayInterface
-    for SpiDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
+    for SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
 where
     SPI: hal::spi::FullDuplex<u8>,
     EPDCS: hal::digital::v2::OutputPin,
@@ -450,6 +477,22 @@ where
         self.spi_bus.sram_seq().ok();
     }
 
+    fn busy_wait(&self) {
+        while match self.busy.is_high() {
+            Ok(x) => x,
+            _ => false,
+        } {}
+    }
+
+    fn epd_update_data(
+        &mut self,
+        _layer: u8,
+        _nbytes: u16,
+        _buf: &[u8],
+    ) -> Result<(), Self::Error> {
+        panic!()
+    }
+
     fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), Self::Error> {
         self.spi_bus.sram_read(address, data)
     }
@@ -462,23 +505,17 @@ where
         self.spi_bus.sram_erase(address, nbytes, val)
     }
 
-    fn busy_wait(&self) {
-        while match self.busy.is_high() {
-            Ok(x) => x,
-            _ => false,
-        } {}
-    }
-
-    fn epd_update_data(&mut self, layer: u8, nbytes: u16, _buf: &[u8]) -> Result<(), Self::Error> {
-        let (epd_location, sram_address) = if layer == 0 {
-            (0x10, 0u16)
-        } else {
-            (0x13, nbytes as u16)
-        };
+    fn sram_epd_update_data(
+        &mut self,
+        layer: u8,
+        nbytes: u16,
+        start_address: u16,
+    ) -> Result<(), Self::Error> {
+        let epd_location = if layer == 0 { 0x10 } else { 0x13 };
         self.dc.set_low().ok();
         let ch = self
             .spi_bus
-            .sram_epd_move_header(sram_address, epd_location)?;
+            .sram_epd_move_header(start_address, epd_location)?;
         self.dc.set_high().ok();
         self.spi_bus.sram_epd_move_body(ch, nbytes)
     }

@@ -61,13 +61,11 @@ pub enum Command {
     /// Deep Sleep
     DeepSleep,
     /// Data Start Transmission 1 (DTM1)
-    DataStartTransmission1,
     /// Data Stop (DSP)
     DataStop,
     /// Display Refresh (DRF)
     DisplayRefresh,
     /// Data Start Transmission 2 (DTM2)
-    DataStartTransmission2,
     /// VCOM LUT (LUTC)
     /// W2W LUT (LUTWW)
     /// B2W LUT (LUTBW/LUTR)
@@ -236,7 +234,6 @@ impl Command {
                 debug_assert!(vcom_dc <= 0b11_1010);
                 pack!(buf, 0x82, [vcom_dc])
             }
-            _ => unimplemented!(),
         };
 
         interface.send_command(command)?;

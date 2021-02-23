@@ -1,7 +1,6 @@
-use hal;
-
 use command::{Command, DataInterval, DataPolarity};
 use config::Config;
+use hal;
 use interface::DisplayInterface;
 
 // Max display resolution is 160x296
@@ -92,35 +91,17 @@ where
         delay.delay_ms(20);
         Command::ResolutionSetting(self.config.dimensions.cols, self.config.dimensions.rows)
             .execute(&mut self.interface)?;
-
         Ok(())
     }
 
-    /// Update the display by writing the supplied B/W and Red buffers to the controller.
-    ///
-    /// This method will write the two buffers to the controller then initiate the update
-    /// display command. Currently it will busy wait until the update has completed.
-    pub fn update(&mut self, black: &[u8], red: &[u8]) -> Result<(), I::Error> {
-        // Write the B/W
-        let buf_limit = ((self.rows() * self.cols() as u16) as u32 / 8) as u16;
-        self.interface.epd_update_data(0, buf_limit, &black)?;
-
-        // Write the Red
-        self.interface.epd_update_data(1, buf_limit, &red)?;
-
+    /// Tell the hardware to update the display
+    pub fn signal_update(&mut self) -> Result<(), I::Error> {
         // Kick off the display update
-        Command::DisplayRefresh.execute(&mut self.interface)?;
-        // TODO: We don't really need to wait here... the program can go off and do other things
-        // and only busy wait if it wants to talk to the display again. Could possibly treat
-        // the interface like a smart pointer in which deref would wait until it's not
-        // busy.
-        self.interface.busy_wait();
-
-        Ok(())
+        Command::DisplayRefresh.execute(&mut self.interface)
     }
 
-    /// power down
-    pub fn power_down(&mut self) -> Result<(), I::Error> {
+    fn power_down(&mut self) -> Result<(), I::Error> {
+        self.interface.busy_wait();
         Command::VCOMDataIntervalSetting(0x0, DataPolarity::BWOnly, DataInterval::V10)
             .execute(&mut self.interface)?;
         Command::VCMDCSetting(0).execute(&mut self.interface)?;
@@ -132,6 +113,7 @@ where
     /// This puts the display controller into a low power mode. `reset` must be called to wake it
     /// from sleep.
     pub fn deep_sleep(&mut self) -> Result<(), I::Error> {
+        self.power_down()?;
         Command::DeepSleep.execute(&mut self.interface)
     }
 

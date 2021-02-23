@@ -23,7 +23,7 @@ where
 {
     /// Promote a `Display` to a `GraphicDisplay`.
     ///
-    /// B/W and Red buffers for drawing into must be supplied. These should be `rows` * `cols` in
+    /// B/W and Red buffers for drawing into must be supplied. These should be `rows` * `cols` / `8` in
     /// length.
     pub fn new(display: Display<I>, black_buffer: &'a mut [u8], red_buffer: &'a mut [u8]) -> Self {
         GraphicDisplay {
@@ -32,14 +32,25 @@ where
             red_buffer,
         }
     }
-}
 
-impl<'a, I> GraphicDisplay<'a, I>
-where
-    I: DisplayInterface,
-{
+    /// update the display
+    pub fn update(&mut self) -> Result<(), I::Error> {
+        let buf_limit = ((self.rows() * self.cols() as u16) as u32 / 8) as u16;
+        // update black
+        self.display
+            .interface()
+            .epd_update_data(0, buf_limit, self.black_buffer)
+            .ok();
+        // update red
+        self.display
+            .interface()
+            .epd_update_data(1, buf_limit, self.red_buffer)
+            .ok();
+        self.display.signal_update()
+    }
+
     /// Clear the buffers, filling them a single color.
-    fn clear(&mut self, color: Color) {
+    fn clear(&mut self, color: Color) -> Result<(), core::convert::Infallible> {
         let (black, red) = match color {
             Color::White => (0xFF, 0xFF),
             Color::Black => (0x00, 0xFF),
@@ -54,9 +65,11 @@ where
         for byte in &mut self.red_buffer.iter_mut() {
             *byte = red; // background_color.get_byte_value();
         }
+        Ok(())
     }
 
-    fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
+    /// set a pixel to a color
+    fn set_pixel(&mut self, x: u32, y: u32, color: Color) -> Result<(), core::convert::Infallible> {
         let (index, bit) = rotation(
             x,
             y,
@@ -80,6 +93,7 @@ where
                 self.red_buffer[index] &= !bit;
             }
         }
+        Ok(())
     }
 }
 
@@ -127,11 +141,13 @@ where
 {
     type Error = core::convert::Infallible;
 
+    /// override the clear method
     fn clear(&mut self, color: Color) -> Result<(), Self::Error> {
-        self.clear(color);
+        self.clear(color)?;
         Ok(())
     }
 
+    /// required method
     fn draw_pixel(
         &mut self,
         Pixel(Point { x, y }, color): Pixel<Color>,
@@ -140,11 +156,12 @@ where
         let x = x as u32;
         let y = y as u32;
         if x < sz.width && y < sz.height {
-            self.set_pixel(x, y, color)
+            self.set_pixel(x, y, color)?;
         }
         Ok(())
     }
 
+    /// required method
     fn size(&self) -> Size {
         match self.rotation() {
             Rotation::Rotate0 | Rotation::Rotate180 => {
@@ -159,10 +176,11 @@ where
 
 /// A display that uses SRAM for backing buffers for drawing into and updating the display from.
 ///
-/// When the `graphics` feature is enabled `GraphicDisplaySRAM` implements the `DrawTarget` trait from
+/// When the `graphics` feature is enabled `GraphicDisplaySram` implements the `DrawTarget` trait from
 /// [embedded-graphics](https://crates.io/crates/embedded-graphics). This allows basic shapes and
 /// text to be drawn on the display.
-pub struct GraphicDisplaySRAM<I>
+#[cfg(feature = "sram")]
+pub struct GraphicDisplaySram<I>
 where
     I: DisplayInterface,
 {
@@ -172,19 +190,33 @@ where
     red_address: u16,
 }
 
-impl<I> GraphicDisplaySRAM<I>
+#[cfg(feature = "sram")]
+impl<I> GraphicDisplaySram<I>
 where
     I: DisplayInterface,
 {
-    /// Promote a `Display` to a `GraphicDisplaySRAM`.
+    /// Promote a `Display` to a `GraphicDisplaySram`.
     pub fn new(display: Display<I>) -> Self {
         let sz = ((display.rows() * display.cols() as u16) as u32 / 8) as u16;
-        GraphicDisplaySRAM {
+        GraphicDisplaySram {
             display: display,
             buffer_size: sz,
             black_address: 0,
             red_address: sz,
         }
+    }
+
+    /// update the display
+    pub fn update(&mut self) -> Result<(), I::Error> {
+        // update black
+        self.display
+            .interface()
+            .sram_epd_update_data(0, self.buffer_size, self.black_address)?;
+        // update red
+        self.display
+            .interface()
+            .sram_epd_update_data(1, self.buffer_size, self.red_address)?;
+        self.display.signal_update()
     }
 
     /// Clear the buffers, filling them a single color.
@@ -204,6 +236,7 @@ where
         Ok(())
     }
 
+    /// set a pixel to a color
     fn set_pixel(&mut self, x: u32, y: u32, color: Color) -> Result<(), I::Error> {
         let (index, bit) = rotation(
             x,
@@ -251,7 +284,8 @@ where
     }
 }
 
-impl<I> Deref for GraphicDisplaySRAM<I>
+#[cfg(feature = "sram")]
+impl<I> Deref for GraphicDisplaySram<I>
 where
     I: DisplayInterface,
 {
@@ -262,7 +296,8 @@ where
     }
 }
 
-impl<I> DerefMut for GraphicDisplaySRAM<I>
+#[cfg(feature = "sram")]
+impl<I> DerefMut for GraphicDisplaySram<I>
 where
     I: DisplayInterface,
 {
@@ -271,13 +306,14 @@ where
     }
 }
 
-#[cfg(feature = "graphics")]
-impl<I> DrawTarget<Color> for GraphicDisplaySRAM<I>
+#[cfg(all(feature = "graphics", feature = "sram"))]
+impl<I> DrawTarget<Color> for GraphicDisplaySram<I>
 where
     I: DisplayInterface,
 {
     type Error = I::Error;
 
+    /// required method
     fn draw_pixel(
         &mut self,
         Pixel(Point { x, y }, color): Pixel<Color>,
@@ -291,10 +327,12 @@ where
         Ok(())
     }
 
+    /// override the default
     fn clear(&mut self, color: Color) -> Result<(), Self::Error> {
         self.clear(color)
     }
 
+    /// required method
     fn size(&self) -> Size {
         match self.rotation() {
             Rotation::Rotate0 | Rotation::Rotate180 => {
