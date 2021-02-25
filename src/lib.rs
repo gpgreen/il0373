@@ -22,20 +22,20 @@
 //! [Config] a [Display] instance can be created.
 //!
 //!
+//! Optionally the [Display] can be promoted to a [GraphicDisplay],
+//! which allows it to use the functionality from the
+//! [embedded-graphics crate][embedded-graphics]. The plain display
+//! only provides the ability to update the display by passing
+//! black/white and red buffers.
+//!
+//!
 //! This driver can work with an SRAM device, to store the display
 //! buffer on that device, to reduce the memory footprint on the
 //! MCU. The SRAM device must be on the the same SPI port as the
 //! il0373. For this option, use the feature `sram`. Instead of using
 //! a [Interface] and [GraphicDisplay], use a [SpiBus], and an
-//! associated [SramDisplayInterface], then use a
-//! [SramGraphicDisplay].
+//! associated [SramDisplayInterface], then a [SramGraphicDisplay].
 //!
-//!
-//! Optionally the [Display] can be promoted to a [GraphicDisplay],
-//! which allows it to use the functionality from the
-//! [embedded-graphics crate][embedded-graphics]. The plain display
-//! only provides the ability to update the display, either using RAM
-//! buffers, or the sram device.
 //!
 //! To update the display you will typically follow this flow:
 //!

@@ -1,24 +1,20 @@
 #![no_std]
 #![no_main]
 
-// gud invocation: gdb-multiarch -x openocd.gdb -q target/thumbv7m-none-eabi/debug/stm32-eink
+// gud invocation: gdb-multiarch -x jlink.gdb -q target/thumbv7em-none-eabihf/debug/feather-m4-eink
 
 // pick a panicking behavior
 //extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
 //extern crate panic_abort; // requires nightly
 //extern crate panic_itm; // logs messages over ITM; requires ITM support
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
-                                //use panic_semihosting;
 
-use board::{
-    hal::{adc::Adc, delay::Delay, gpio::*, pac, prelude::*, spi::*},
-    spi::Mode,
+use feather_m4::{
+    adc::Adc, adc::DeviceSensor, clock, delay::Delay, pac::gclk::pchctrl::GEN_A,
+    pac::CorePeripherals, pac::Peripherals, prelude::*, spi_master, Pins,
 };
-use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
 use heapless::consts::*;
 use heapless::String;
-use nucleo_f103rb as board;
 
 use il0373::{
     Builder, Color, Dimensions, Display, Rotation, SpiBus, SramDisplayInterface, SramGraphicDisplay,
@@ -38,74 +34,57 @@ use embedded_graphics::{
 const ROWS: u16 = 212;
 const COLS: u8 = 104;
 
-#[entry]
+#[feather_m4::entry]
 fn main() -> ! {
     // Get access to the core peripherals from the cortex-m crate
-    let cp = cortex_m::Peripherals::take().unwrap();
+    let cp = CorePeripherals::take().unwrap();
     // Get access to the device specific peripherals from the peripheral access crate
-    let dp = pac::Peripherals::take().unwrap();
+    let mut dp = Peripherals::take().unwrap();
 
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store
-    // the frozen frequencies in `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    // afio
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
-
-    // gpioa
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-
-    // configure Digital I/O pins
-    let busy = gpioa.pa8.into_pull_up_input(&mut gpioa.crh);
-    let dc = gpioc.pc7.into_push_pull_output(&mut gpioc.crl);
-    let reset = gpioa.pa9.into_push_pull_output(&mut gpioa.crh);
-    let display_pins = (busy, dc, reset);
-
-    //configure adc
-    let mut adc = Adc::adc1(dp.ADC1, &mut rcc.apb2, clocks);
-
-    // spi pins
-    let pins = (
-        gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl),
-        gpioa.pa6.into_floating_input(&mut gpioa.crl),
-        gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl),
+    // the clock
+    let mut clocks = clock::GenericClockController::with_external_32kosc(
+        dp.GCLK,
+        &mut dp.MCLK,
+        &mut dp.OSC32KCTRL,
+        &mut dp.OSCCTRL,
+        &mut dp.NVMCTRL,
     );
 
-    let epd_cs = gpiob.pb6.into_push_pull_output(&mut gpiob.crl);
-    let sram_cs = gpiob.pb10.into_push_pull_output(&mut gpiob.crh);
-    let mut sdmmc_cs = gpiob.pb5.into_push_pull_output(&mut gpiob.crl);
+    let mut pins = Pins::new(dp.PORT);
+
+    // configure Digital I/O pins
+    let busy = pins.d12.into_floating_input(&mut pins.port);
+    let dc = pins.d6.into_push_pull_output(&mut pins.port);
+    let reset = pins.d11.into_push_pull_output(&mut pins.port);
+    let display_pins = (busy, dc, reset);
+
+    let epd_cs = pins.d5.into_push_pull_output(&mut pins.port);
+    let sram_cs = pins.d9.into_push_pull_output(&mut pins.port);
+    let mut sdmmc_cs = pins.d10.into_push_pull_output(&mut pins.port);
     sdmmc_cs.set_high().unwrap();
     let cs_pins = (epd_cs, sram_cs);
 
-    // configure spi1
-    let spi = Spi::spi1(
-        dp.SPI1,
-        pins,
-        &mut afio.mapr,
-        Mode {
-            polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnFirstTransition,
-        },
-        4.mhz(),
-        clocks,
-        &mut rcc.apb2,
+    // configure spi3
+    let spi = spi_master(
+        &mut clocks,
+        4_000_000u32.hz(),
+        dp.SERCOM1,
+        &mut dp.MCLK,
+        pins.sck,
+        pins.mosi,
+        pins.miso,
+        &mut pins.port,
     );
+
+    // configure adc
+    let mut adc = Adc::adc0(dp.ADC0, &mut dp.MCLK, &mut clocks, GEN_A::GCLK11);
+
+    let mut delay = Delay::new(cp.SYST, &mut clocks);
+
+    // configure display
     let spi_bus = SpiBus::new(spi, cs_pins);
-
-    // Initialize display controller
-    let mut delay = Delay::new(cp.SYST, clocks);
-
     let controller = SramDisplayInterface::new(spi_bus, display_pins);
-
     delay.delay_ms(800u32);
-
     let config = Builder::new()
         .dimensions(Dimensions {
             rows: ROWS,
@@ -115,9 +94,7 @@ fn main() -> ! {
         .build()
         .ok()
         .unwrap();
-
     let display = Display::new(controller, config);
-
     let mut display = SramGraphicDisplay::new(display);
 
     let text_style_black = TextStyleBuilder::new(Font6x8)
@@ -131,18 +108,37 @@ fn main() -> ! {
 
     // Check the temperature and display it, wait for 180s, and do it again
     loop {
-        let temp = adc.read_temp();
-        let mut status = String::<U32>::from("Nucleo-F103RB: ");
-        status.push_str(&String::<U32>::from(temp)).ok();
+        let vcore = adc.read_device_sensors(DeviceSensor::SCALEDCOREVCC);
+        let vbat = adc.read_device_sensors(DeviceSensor::SCALEDVBAT);
+        let vio = adc.read_device_sensors(DeviceSensor::SCALEDIOVCC);
+        let status = String::<U32>::from("Feather-M4: ");
+        let mut vc = String::<U32>::from("vcore:");
+        vc.push_str(&String::<U32>::from(vcore)).ok();
+        let mut vb = String::<U32>::from("vbat:");
+        vb.push_str(&String::<U32>::from(vbat)).ok();
+        let mut vi = String::<U32>::from("vio:");
+        vi.push_str(&String::<U32>::from(vio)).ok();
 
         display.reset(&mut delay).ok();
         display.clear(Color::White).ok();
+        Text::new("Hello!", Point::new(120, 15))
+            .into_styled(text_style_red)
+            .draw(&mut display)
+            .ok();
         Text::new(status.as_str(), Point::new(70, 49))
             .into_styled(text_style_black)
             .draw(&mut display)
             .ok();
-        Text::new("Hello!", Point::new(120, 15))
-            .into_styled(text_style_red)
+        Text::new(vc.as_str(), Point::new(105, 59))
+            .into_styled(text_style_black)
+            .draw(&mut display)
+            .ok();
+        Text::new(vb.as_str(), Point::new(105, 69))
+            .into_styled(text_style_black)
+            .draw(&mut display)
+            .ok();
+        Text::new(vi.as_str(), Point::new(105, 79))
+            .into_styled(text_style_black)
             .draw(&mut display)
             .ok();
         Line::new(Point::new(10, 10), Point::new(100, 96))
@@ -162,6 +158,8 @@ fn main() -> ! {
 
         // adafruit says to only update the display every 180 seconds
         // or risk damaging the display
-        delay.delay_ms(180_000u32);
+        for _i in 0..6 {
+            delay.delay_ms(30_000u32);
+        }
     }
 }
