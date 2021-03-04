@@ -3,11 +3,6 @@
 Rust driver for the [Dalian Good Displays IL0373][IL0373] e-Paper display (EPD)
 controller, for use with [embedded-hal].
 
-[![Build Status](https://travis-ci.org/gpgreen/il0373.svg?branch=main)](https://travis-ci.org/gpgreen/il0373)
-[![codecov](https://codecov.io/gh/gpgreen/il0373/branch/main/graph/badge.svg)](https://codecov.io/gh/gpgreen/il0373)
-[![crates.io](https://img.shields.io/crates/v/il0373.svg)](https://crates.io/crates/il0373)
-[![Documentation](https://docs.rs/il0373/badge.svg)][crate-docs]
-
 <img
 src="https://raw.githubusercontent.com/gpgreen/il0373/main/nucleo-epaper.jpg"
 width="640" alt="Photo of Adafruit 2.13 eink display on Nucleo-F103RB
