@@ -7,8 +7,8 @@ documentation = "https://docs.rs/il0373"
 repository = "https://github.com/gpgreen/il0373"
 readme = "README.md"
 keywords = ["embedded", "epd", "epaper", "display", "il0373", "embedded-graphics"]
-categories = ["embedded", "no-std"]
-license = "GPL-3.0-or-later"
+categories = ["embedded", "hardware-support", "no-std"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 nb = "1"
