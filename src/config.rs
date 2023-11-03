@@ -68,6 +68,7 @@ impl Builder {
     /// Set the panel
     ///
     /// Defaults to 160x296. Corresponds to command 0x0.
+    /// Is overwritten by the row and column values in [Builder::dimensions]
     pub fn panel_setting(self, res: DisplayResolution) -> Self {
         Self {
             panel_setting: Command::PanelSetting(res),
@@ -109,6 +110,8 @@ impl Builder {
     ///
     /// There is no default for this setting. The dimensions must be set for the builder to
     /// successfully build a Config.
+    ///
+    /// Has higher priority in than the [Builder::panel_setting] value.
     pub fn dimensions(self, dimensions: Dimensions) -> Self {
         assert!(
             dimensions.cols % 4 == 0,

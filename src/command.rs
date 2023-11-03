@@ -46,7 +46,7 @@ pub enum DataInterval {
 /// A command that can be issued to the controller.
 #[derive(Clone, Copy)]
 pub enum Command {
-    /// Set the panel (PSR)
+    /// Set the panel (PSR), overwritten by ResolutionSetting (TRES)
     PanelSetting(DisplayResolution),
     /// Gate scanning sequence and direction (PWR)
     PowerSetting(u8, u8, u8),
@@ -80,7 +80,7 @@ pub enum Command {
     VCOMDataIntervalSetting(u8, DataPolarity, DataInterval),
     /// Low Power Detection
     /// TCON Setting
-    /// ResolutionSetting (TRES)
+    /// ResolutionSetting (TRES). Has higher priority than (PSR)
     ResolutionSetting(u8, u16),
     /// Revision
     /// Get Status
@@ -226,8 +226,8 @@ impl Command {
                 pack!(buf, 0x50, [vbd | ddx | cdi])
             }
             ResolutionSetting(horiz, vertical) => {
-                let vres_hi = ((vertical & 0x80) >> 7) as u8;
-                let vres_lo = (vertical & 0x7F) as u8;
+                let vres_hi = ((vertical & 0x100) >> 8) as u8;
+                let vres_lo = (vertical & 0xFF) as u8;
                 pack!(buf, 0x61, [horiz, vres_hi, vres_lo])
             }
             VCMDCSetting(vcom_dc) => {
