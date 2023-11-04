@@ -24,12 +24,7 @@ demonstrated in the [Nucleo-F103RB] example.
 The library has been tested and confirmed working on these devices:
 
 * Adafruit 2.13 Tri-Color eInk [Adafruit Tri-Color eInk] on [Nucleo-F103RB] dev board (pictured above)
-
-## Examples
-
-**Note:** To build the examples the `examples` feature needs to be enabled. E.g.
-
-    cargo build --release --examples --features examples
+* Adafruit 2.13 Tri-Color eInk [Adafruit Tri-Color eInk] on Raspberry Pi
 
 ### Nucleo-F103RB with Adafruit 2.13 eInk
 
@@ -52,7 +47,7 @@ shows how to display information on an [Adafruit Tri-Color eInk] using this crat
 `il0373` is licensed under either of
 
 - Apache License, Version 2.0 [LICENSE-APACHE](LICENSE-APACHE)
-- MIT License [LICENSE-MIT](LICENSE-MIT) for more info.
+- MIT License [LICENSE-MIT](LICENSE-MIT)
 
 at your option.
 

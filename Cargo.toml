@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["embedded", "epd", "epaper", "display", "il0373", "embedded-graphics"]
 categories = ["embedded", "hardware-support", "no-std"]
 license = "MIT OR Apache-2.0"
+homepage = "https://github.com/gpgreen/il0373"
 
 [dependencies]
 nb = "1"
@@ -43,4 +44,3 @@ default = ["graphics"]
 graphics = ["embedded-graphics"]
 sram = []
 test = ["embedded-graphics"]
-examples = ["embedded-graphics"]
