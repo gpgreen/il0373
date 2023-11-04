@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "il0373"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",

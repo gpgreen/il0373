@@ -1,13 +1,13 @@
 [package]
 name = "il0373"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Greg Green <ggreen@bit-builder.com>"]
 description = "Driver for the IL0373 e-Paper display (EPD) controller, for use with embedded-graphics"
 documentation = "https://docs.rs/il0373"
 repository = "https://github.com/gpgreen/il0373"
 readme = "README.md"
-keywords = ["embedded", "epd", "epaper", "display", "il0373", "embedded-graphics"]
-categories = ["embedded", "hardware-support", "no-std"]
+keywords = ["epaper", "il0373", "embedded-graphics"]
+categories = ["embedded", "graphics", "hardware-support", "no-std"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/gpgreen/il0373"
 
