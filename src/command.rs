@@ -1,4 +1,4 @@
-use core;
+use core::ops;
 use interface::DisplayInterface;
 
 trait Contains<C>
@@ -8,6 +8,7 @@ where
     fn contains(&self, item: C) -> bool;
 }
 
+/// Display Resolution
 #[derive(Clone, Copy)]
 pub enum DisplayResolution {
     R96x230,
@@ -16,6 +17,7 @@ pub enum DisplayResolution {
     R160x296,
 }
 
+/// Data Polarity
 #[derive(Clone, Copy)]
 pub enum DataPolarity {
     BWOnly,
@@ -23,6 +25,7 @@ pub enum DataPolarity {
     Both,
 }
 
+/// Data Interval
 #[derive(Clone, Copy)]
 pub enum DataInterval {
     V2,
@@ -237,7 +240,7 @@ impl Command {
         };
 
         interface.send_command(command)?;
-        if data.len() == 0 {
+        if data.is_empty() {
             Ok(())
         } else {
             interface.send_data(data)
@@ -256,7 +259,7 @@ impl<'buf> BufCommand<'buf> {
         };
 
         interface.send_command(command)?;
-        if data.len() == 0 {
+        if data.is_empty() {
             Ok(())
         } else {
             interface.send_data(data)
@@ -264,7 +267,7 @@ impl<'buf> BufCommand<'buf> {
     }
 }
 
-impl<C> Contains<C> for core::ops::Range<C>
+impl<C> Contains<C> for ops::Range<C>
 where
     C: Copy + PartialOrd,
 {
@@ -273,7 +276,7 @@ where
     }
 }
 
-impl<C> Contains<C> for core::ops::RangeInclusive<C>
+impl<C> Contains<C> for ops::RangeInclusive<C>
 where
     C: Copy + PartialOrd,
 {
@@ -312,16 +315,11 @@ mod tests {
     impl DisplayInterface for MockInterface {
         type Error = ();
 
-        /// Send a command to the controller.
-        ///
-        /// Prefer calling `execute` on a [Commmand](../command/enum.Command.html) over calling this
-        /// directly.
         fn send_command(&mut self, command: u8) -> Result<(), Self::Error> {
             self.write(command);
             Ok(())
         }
 
-        /// Send data for a command.
         fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error> {
             for byte in data {
                 self.write(*byte)
@@ -329,15 +327,47 @@ mod tests {
             Ok(())
         }
 
-        /// Reset the controller.
         fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, _delay: &mut D) {
             self.data = [0; 256];
             self.offset = 0;
         }
 
-        /// Wait for the controller to indicate it is not busy.
         fn busy_wait(&self) {
             // nop
+        }
+
+        fn epd_update_data(
+            &mut self,
+            _layer: u8,
+            _nbytes: u16,
+            _buf: &[u8],
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_read(&mut self, _address: u16, _data: &mut [u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_write(&mut self, _address: u16, _data: &[u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_clear(&mut self, _address: u16, _nbytes: u16, _val: u8) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_epd_update_data(
+            &mut self,
+            _layer: u8,
+            _nbytes: u16,
+            _start_address: u16,
+        ) -> Result<(), Self::Error> {
+            Ok(())
         }
     }
 

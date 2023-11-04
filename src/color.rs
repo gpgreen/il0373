@@ -1,3 +1,5 @@
+use embedded_graphics_core::pixelcolor::{raw::RawU8, PixelColor};
+
 /// Represents the state of a pixel in the display
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Color {
@@ -6,13 +8,6 @@ pub enum Color {
     Red,
 }
 
-#[cfg(feature = "graphics")]
-extern crate embedded_graphics;
-#[cfg(feature = "graphics")]
-use self::embedded_graphics::pixelcolor::raw::RawU8;
-#[cfg(feature = "graphics")]
-use self::embedded_graphics::prelude::*;
-#[cfg(feature = "graphics")]
 impl PixelColor for Color {
     type Raw = RawU8;
 }
@@ -36,6 +31,7 @@ mod tests {
     fn from_u8() {
         assert_eq!(Color::Black, Color::from(0u8));
         assert_eq!(Color::White, Color::from(1u8));
+        assert_eq!(Color::Red, Color::from(2u8));
     }
 
     #[test]

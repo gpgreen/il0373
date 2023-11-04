@@ -54,6 +54,10 @@
 //! [Builder]: config/struct.Builder.html
 //! [embedded-graphics]: https://crates.io/crates/embedded-graphics
 
+#[cfg(test)]
+extern crate embedded_graphics;
+
+extern crate embedded_graphics_core;
 extern crate embedded_hal as hal;
 
 #[cfg(test)]

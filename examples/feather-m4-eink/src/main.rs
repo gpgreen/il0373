@@ -10,8 +10,8 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 
 use feather_m4::{
-    adc::Adc, adc::DeviceSensor, clock, delay::Delay, pac::gclk::pchctrl::GEN_A,
-    pac::CorePeripherals, pac::Peripherals, prelude::*, spi_master, Pins,
+    hal::clock, hal::delay::Delay, hal::prelude::*, pac::gclk::pchctrl::GEN_A,
+    pac::CorePeripherals, pac::Peripherals, spi_master, Pins,
 };
 use heapless::consts::*;
 use heapless::String;
@@ -24,11 +24,13 @@ use il0373::{
 extern crate embedded_graphics;
 
 use embedded_graphics::{
-    fonts::{Font12x16, Font6x8, Text},
+    mono_font::{
+        ascii::{FONT_10X20, FONT_6X9},
+        MonoTextStyle,
+    },
     prelude::*,
-    primitives::Line,
-    style::PrimitiveStyle,
-    style::TextStyleBuilder,
+    primitives::{Line, PrimitiveStyle},
+    text::Text,
 };
 
 const ROWS: u16 = 212;
@@ -53,31 +55,27 @@ fn main() -> ! {
     let mut pins = Pins::new(dp.PORT);
 
     // configure Digital I/O pins
-    let busy = pins.d12.into_floating_input(&mut pins.port);
-    let dc = pins.d6.into_push_pull_output(&mut pins.port);
-    let reset = pins.d11.into_push_pull_output(&mut pins.port);
+    let busy = pins.d12.into_floating_input();
+    let dc = pins.d6.into_push_pull_output();
+    let reset = pins.d11.into_push_pull_output();
     let display_pins = (busy, dc, reset);
 
-    let epd_cs = pins.d5.into_push_pull_output(&mut pins.port);
-    let sram_cs = pins.d9.into_push_pull_output(&mut pins.port);
-    let mut sdmmc_cs = pins.d10.into_push_pull_output(&mut pins.port);
+    let epd_cs = pins.d5.into_push_pull_output();
+    let sram_cs = pins.d9.into_push_pull_output();
+    let mut sdmmc_cs = pins.d10.into_push_pull_output();
     sdmmc_cs.set_high().unwrap();
     let cs_pins = (epd_cs, sram_cs);
 
     // configure spi3
     let spi = spi_master(
         &mut clocks,
-        4_000_000u32.hz(),
+        4_000_000u32.Hz(),
         dp.SERCOM1,
         &mut dp.MCLK,
         pins.sck,
         pins.mosi,
         pins.miso,
-        &mut pins.port,
     );
-
-    // configure adc
-    let mut adc = Adc::adc0(dp.ADC0, &mut dp.MCLK, &mut clocks, GEN_A::GCLK11);
 
     let mut delay = Delay::new(cp.SYST, &mut clocks);
 
@@ -97,48 +95,19 @@ fn main() -> ! {
     let display = Display::new(controller, config);
     let mut display = SramGraphicDisplay::new(display);
 
-    let text_style_black = TextStyleBuilder::new(Font6x8)
-        .text_color(Color::Black)
-        .background_color(Color::White)
-        .build();
-    let text_style_red = TextStyleBuilder::new(Font12x16)
-        .text_color(Color::Red)
-        .background_color(Color::White)
-        .build();
+    let text_style_black = MonoTextStyle::new(&FONT_6X9, Color::Black);
+    let text_style_red = MonoTextStyle::new(&FONT_10X20, Color::Red);
 
     // Check the temperature and display it, wait for 180s, and do it again
     loop {
-        let vcore = adc.read_device_sensors(DeviceSensor::SCALEDCOREVCC);
-        let vbat = adc.read_device_sensors(DeviceSensor::SCALEDVBAT);
-        let vio = adc.read_device_sensors(DeviceSensor::SCALEDIOVCC);
         let status = String::<U32>::from("Feather-M4: ");
-        let mut vc = String::<U32>::from("vcore:");
-        vc.push_str(&String::<U32>::from(vcore)).ok();
-        let mut vb = String::<U32>::from("vbat:");
-        vb.push_str(&String::<U32>::from(vbat)).ok();
-        let mut vi = String::<U32>::from("vio:");
-        vi.push_str(&String::<U32>::from(vio)).ok();
 
         display.reset(&mut delay).ok();
         display.clear(Color::White).ok();
-        Text::new("Hello!", Point::new(120, 15))
-            .into_styled(text_style_red)
+        Text::new("Hello!", Point::new(120, 15), text_style_red)
             .draw(&mut display)
             .ok();
-        Text::new(status.as_str(), Point::new(70, 49))
-            .into_styled(text_style_black)
-            .draw(&mut display)
-            .ok();
-        Text::new(vc.as_str(), Point::new(105, 59))
-            .into_styled(text_style_black)
-            .draw(&mut display)
-            .ok();
-        Text::new(vb.as_str(), Point::new(105, 69))
-            .into_styled(text_style_black)
-            .draw(&mut display)
-            .ok();
-        Text::new(vi.as_str(), Point::new(105, 79))
-            .into_styled(text_style_black)
+        Text::new(status.as_str(), Point::new(70, 52), text_style_black)
             .draw(&mut display)
             .ok();
         Line::new(Point::new(10, 10), Point::new(100, 96))

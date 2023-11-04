@@ -131,7 +131,7 @@ where
     /// Create a new Interface from embedded hal traits.
     pub fn new(spi: SPI, pins: (CS, BUSY, DC, RESET)) -> Self {
         Self {
-            spi: spi,
+            spi,
             cs: pins.0,
             busy: pins.1,
             dc: pins.2,
@@ -275,7 +275,7 @@ where
         pins.0.set_high().ok();
         pins.1.set_high().ok();
         SpiBus {
-            spi: spi,
+            spi,
             epd_cs: pins.0,
             sram_cs: pins.1,
         }
@@ -425,7 +425,7 @@ where
         // reset inactive high
         pins.2.set_high().ok();
         SramDisplayInterface {
-            spi_bus: spi_bus,
+            spi_bus,
             busy: pins.0,
             dc: pins.1,
             reset: pins.2,

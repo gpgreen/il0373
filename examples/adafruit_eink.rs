@@ -3,10 +3,10 @@ extern crate il0373;
 extern crate linux_embedded_hal;
 
 use embedded_graphics::{
-    fonts::{Font6x8, Text},
+    mono_font::{ascii::FONT_6X9, MonoTextStyle},
     prelude::*,
-    primitives::{Circle, Rectangle, Triangle},
-    style::{PrimitiveStyle, TextStyle},
+    primitives::{Circle, PrimitiveStyleBuilder, Rectangle, Triangle},
+    text::{Alignment, Text},
 };
 use il0373::{Builder, Color, Dimensions, Display, GraphicDisplay, Interface, Rotation};
 use linux_embedded_hal::{
@@ -52,7 +52,7 @@ fn main() -> Result<(), std::convert::Infallible> {
         .expect("reset Direction");
     reset.set_value(1).expect("reset Value set to 1");
 
-    let pins: (cs, busy, dc, reset);
+    let pins = (cs, busy, dc, reset);
 
     // need some buffers
     let mut black = [0u8; 212 * 104 / 8];
@@ -78,18 +78,28 @@ fn main() -> Result<(), std::convert::Infallible> {
     let mut display = GraphicDisplay::new(display, &mut black, &mut red);
 
     // Create styles used by the drawing operations.
-    let thin_stroke = PrimitiveStyle::with_stroke(Color::Black, 1);
-    let thick_stroke = PrimitiveStyle::with_stroke(Color::Black, 3);
-    let fill = PrimitiveStyle::with_fill(Color::Black);
-    let text_style = TextStyle::new(Font6x8, Color::Red);
+    let thin_stroke = PrimitiveStyleBuilder::new()
+        .stroke_color(Color::Black)
+        .stroke_width(1)
+        .build();
+    let thick_stroke = PrimitiveStyleBuilder::new()
+        .stroke_color(Color::Black)
+        .stroke_width(3)
+        .build();
+    let fill = PrimitiveStyleBuilder::new()
+        .fill_color(Color::Black)
+        .build();
+    let text_style = MonoTextStyle::new(&FONT_6X9, Color::Red);
 
     let yoffset = 10;
 
     // Draw a 3px wide outline around the display.
-    let bottom_right = Point::zero() + display.size() - Point::new(1, 1);
-    Rectangle::new(Point::zero(), bottom_right)
-        .into_styled(thick_stroke)
-        .draw(&mut display)?;
+    Rectangle::new(
+        Point::zero(),
+        Size::new(display.size().width - 1, display.size().height - 1),
+    )
+    .into_styled(thick_stroke)
+    .draw(&mut display)?;
 
     // Draw a triangle.
     Triangle::new(
@@ -101,9 +111,12 @@ fn main() -> Result<(), std::convert::Infallible> {
     .draw(&mut display)?;
 
     // Draw a filled square
-    Rectangle::new(Point::new(52, yoffset), Point::new(52 + 16, 16 + yoffset))
-        .into_styled(fill)
-        .draw(&mut display)?;
+    Rectangle::new(
+        Point::new(52, yoffset),
+        Size::new(52 + 16, 16 + yoffset as u32),
+    )
+    .into_styled(fill)
+    .draw(&mut display)?;
 
     // Draw a circle with a 3px wide stroke.
     Circle::new(Point::new(96, yoffset + 8), 8)
@@ -113,9 +126,13 @@ fn main() -> Result<(), std::convert::Infallible> {
     // Draw centered text.
     let text = "embedded-graphics";
     let width = text.len() as i32 * 6;
-    Text::new(text, Point::new(64 - width / 2, 40))
-        .into_styled(text_style)
-        .draw(&mut display)?;
+    Text::with_alignment(
+        text,
+        Point::new(64 - width / 2, 40),
+        text_style,
+        Alignment::Center,
+    )
+    .draw(&mut display)?;
 
     display.update().ok();
     display.deep_sleep().ok();

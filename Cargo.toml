@@ -12,6 +12,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 nb = "1"
+embedded-graphics-core = "0.4"
 
 [dependencies.embedded-hal]
 features = ["unproven"]
@@ -19,7 +20,7 @@ version = "0.2.4"
 
 [dependencies.embedded-graphics]
 optional = true
-version = "0.6.2"
+version = "0.8"
 
 [dev-dependencies]
 ufmt = "0.1.0"
@@ -41,4 +42,5 @@ opt-level = "s"
 default = ["graphics"]
 graphics = ["embedded-graphics"]
 sram = []
+test = ["embedded-graphics"]
 examples = ["embedded-graphics"]

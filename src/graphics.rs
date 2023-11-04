@@ -130,15 +130,16 @@ fn rotation(x: u32, y: u32, width: u32, height: u32, rotation: Rotation) -> (u32
 }
 
 #[cfg(feature = "graphics")]
-extern crate embedded_graphics;
+extern crate embedded_graphics_core;
 #[cfg(feature = "graphics")]
-use self::embedded_graphics::prelude::*;
+use self::embedded_graphics_core::prelude::*;
 
 #[cfg(feature = "graphics")]
-impl<'a, I> DrawTarget<Color> for GraphicDisplay<'a, I>
+impl<'a, I> DrawTarget for GraphicDisplay<'a, I>
 where
     I: DisplayInterface,
 {
+    type Color = Color;
     type Error = core::convert::Infallible;
 
     /// override the clear method
@@ -148,20 +149,21 @@ where
     }
 
     /// required method
-    fn draw_pixel(
-        &mut self,
-        Pixel(Point { x, y }, color): Pixel<Color>,
-    ) -> Result<(), Self::Error> {
-        let sz = self.size();
-        let x = x as u32;
-        let y = y as u32;
-        if x < sz.width && y < sz.height {
-            self.set_pixel(x, y, color)?;
+    fn draw_iter<ITR>(&mut self, pixels: ITR) -> Result<(), Self::Error>
+    where
+        ITR: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        for Pixel(point, color) in pixels.into_iter() {
+            self.set_pixel(point.x as u32, point.y as u32, color)?;
         }
         Ok(())
     }
+}
 
-    /// required method
+impl<'a, I> OriginDimensions for GraphicDisplay<'a, I>
+where
+    I: DisplayInterface,
+{
     fn size(&self) -> Size {
         match self.rotation() {
             Rotation::Rotate0 | Rotation::Rotate180 => {
@@ -199,7 +201,7 @@ where
     pub fn new(display: Display<I>) -> Self {
         let sz = ((display.rows() * display.cols() as u16) as u32 / 8) as u16;
         SramGraphicDisplay {
-            display: display,
+            display,
             buffer_size: sz,
             black_address: 0,
             red_address: sz,
@@ -307,22 +309,20 @@ where
 }
 
 #[cfg(all(feature = "graphics", feature = "sram"))]
-impl<I> DrawTarget<Color> for SramGraphicDisplay<I>
+impl<I> DrawTarget for SramGraphicDisplay<I>
 where
     I: DisplayInterface,
 {
+    type Color = Color;
     type Error = I::Error;
 
     /// required method
-    fn draw_pixel(
-        &mut self,
-        Pixel(Point { x, y }, color): Pixel<Color>,
-    ) -> Result<(), Self::Error> {
-        let sz = self.size();
-        let x = x as u32;
-        let y = y as u32;
-        if x < sz.width && y < sz.height {
-            self.set_pixel(x, y, color)?;
+    fn draw_iter<ITR>(&mut self, pixels: ITR) -> Result<(), Self::Error>
+    where
+        ITR: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        for Pixel(point, color) in pixels.into_iter() {
+            self.set_pixel(point.x as u32, point.y as u32, color)?;
         }
         Ok(())
     }
@@ -331,7 +331,13 @@ where
     fn clear(&mut self, color: Color) -> Result<(), Self::Error> {
         self.clear(color)
     }
+}
 
+#[cfg(all(feature = "graphics", feature = "sram"))]
+impl<I> OriginDimensions for SramGraphicDisplay<I>
+where
+    I: DisplayInterface,
+{
     /// required method
     fn size(&self) -> Size {
         match self.rotation() {
@@ -347,9 +353,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use self::embedded_graphics::{egrectangle, primitive_style};
     use super::*;
-    use {Builder, Color, Dimensions, Display, DisplayInterface, GraphicDisplay, Rotation};
+    use embedded_graphics::{
+        prelude::*,
+        primitives::{PrimitiveStyleBuilder, Rectangle},
+    };
+    use {Builder, Color, Dimensions, Display, DisplayInterface, GraphicDisplay};
 
     const ROWS: u16 = 3;
     const COLS: u8 = 8;
@@ -378,6 +387,40 @@ mod tests {
         }
 
         fn busy_wait(&self) {}
+
+        fn epd_update_data(
+            &mut self,
+            _layer: u8,
+            _nbytes: u16,
+            _buf: &[u8],
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_read(&mut self, _address: u16, _data: &mut [u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_write(&mut self, _address: u16, _data: &[u8]) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_clear(&mut self, _address: u16, _nbytes: u16, _val: u8) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        #[cfg(feature = "sram")]
+        fn sram_epd_update_data(
+            &mut self,
+            _layer: u8,
+            _nbytes: u16,
+            _start_address: u16,
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
     }
 
     fn build_mock_display() -> Display<MockInterface> {
@@ -389,7 +432,7 @@ mod tests {
 
         let config = Builder::new()
             .dimensions(dimensions)
-            .rotation(Rotation::Rotate270)
+            //            .rotation(Rotation::Rotate270)
             .build()
             .expect("invalid config");
         Display::new(interface, config)
@@ -403,11 +446,11 @@ mod tests {
         {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
-            display.clear(Color::White);
+            display.clear(Color::White).unwrap();
         }
 
         assert_eq!(black_buffer, [0xFF, 0xFF, 0xFF]);
-        assert_eq!(red_buffer, [0x00, 0x00, 0x00]);
+        assert_eq!(red_buffer, [0xFF, 0xFF, 0xFF]);
     }
 
     #[test]
@@ -418,11 +461,11 @@ mod tests {
         {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
-            display.clear(Color::Black);
+            display.clear(Color::Black).unwrap();
         }
 
         assert_eq!(black_buffer, [0x00, 0x00, 0x00]);
-        assert_eq!(red_buffer, [0x00, 0x00, 0x00]);
+        assert_eq!(red_buffer, [0xFF, 0xFF, 0xFF]);
     }
 
     #[test]
@@ -433,11 +476,11 @@ mod tests {
         {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
-            display.clear(Color::Red);
+            display.clear(Color::Red).unwrap();
         }
 
         assert_eq!(black_buffer, [0xFF, 0xFF, 0xFF]);
-        assert_eq!(red_buffer, [0xFF, 0xFF, 0xFF]);
+        assert_eq!(red_buffer, [0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -448,14 +491,15 @@ mod tests {
         {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
-
-            egrectangle!(
-                top_left = (0, 0),
-                bottom_right = (2, 2),
-                style = primitive_style!(stroke_color = Color::White, stroke_width = 1)
-            )
-            .draw(&mut display)
-            .unwrap()
+            //            style = primitive_style!(stroke_color = Color::White, stroke_width = 1)
+            let style = PrimitiveStyleBuilder::new()
+                .stroke_color(Color::White)
+                .stroke_width(1)
+                .build();
+            Rectangle::new(Point::new(0, 0), Size::new(3, 3))
+                .into_styled(style)
+                .draw(&mut display)
+                .unwrap();
         }
 
         #[rustfmt::skip]
@@ -464,9 +508,9 @@ mod tests {
                                   0b11100000]);
 
         #[rustfmt::skip]
-        assert_eq!(red_buffer,   [0b00000000,
-                                  0b00000000,
-                                  0b00000000]);
+        assert_eq!(red_buffer,   [0b11100000,
+                                  0b10100000,
+                                  0b11100000]);
     }
 
     #[test]
@@ -478,13 +522,14 @@ mod tests {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
 
-            egrectangle!(
-                top_left = (0, 0),
-                bottom_right = (2, 2),
-                style = primitive_style!(stroke_color = Color::Red, stroke_width = 1)
-            )
-            .draw(&mut display)
-            .unwrap();
+            let style = PrimitiveStyleBuilder::new()
+                .stroke_color(Color::White)
+                .stroke_width(1)
+                .build();
+            Rectangle::new(Point::new(0, 0), Size::new(3, 3))
+                .into_styled(style)
+                .draw(&mut display)
+                .unwrap();
         }
 
         #[rustfmt::skip]

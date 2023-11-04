@@ -13,11 +13,11 @@ use display::{self, Dimensions, Rotation};
 /// let config = Builder::new()
 ///     .dimensions(Dimensions {
 ///         rows: 216,
-///         cols: 106,
+///         cols: 104,
 ///     })
 ///     .rotation(Rotation::Rotate270)
 ///     .build()
-///     .expect("columns must be evenly divisible by 8");
+///     .expect("columns must be evenly divisible by 4");
 /// ```
 pub struct Builder {
     power_setting: Command,
@@ -149,7 +149,7 @@ impl Builder {
             booster_soft_start: self.booster_soft_start,
             panel_setting: self.panel_setting,
             pll: self.pll,
-            dimensions: self.dimensions.ok_or_else(|| BuilderError {})?,
+            dimensions: self.dimensions.ok_or(BuilderError {})?,
             rotation: self.rotation,
         })
     }

@@ -24,11 +24,13 @@ use il0373::{
 extern crate embedded_graphics;
 
 use embedded_graphics::{
-    fonts::{Font12x16, Font6x8, Text},
+    mono_font::{
+        ascii::{FONT_10X20, FONT_6X9},
+        MonoTextStyle,
+    },
     prelude::*,
-    primitives::Line,
-    style::PrimitiveStyle,
-    style::TextStyleBuilder,
+    primitives::{Line, PrimitiveStyle},
+    text::Text,
 };
 
 const ROWS: u16 = 212;
@@ -121,14 +123,8 @@ fn main() -> ! {
 
     let mut display = SramGraphicDisplay::new(display);
 
-    let text_style_black = TextStyleBuilder::new(Font6x8)
-        .text_color(Color::Black)
-        .background_color(Color::White)
-        .build();
-    let text_style_red = TextStyleBuilder::new(Font12x16)
-        .text_color(Color::Red)
-        .background_color(Color::White)
-        .build();
+    let text_style_black = MonoTextStyle::new(&FONT_6X9, Color::Black);
+    let text_style_red = MonoTextStyle::new(&FONT_10X20, Color::Red);
 
     // Check the temperature and display it, wait for 180s, and do it again
     loop {
@@ -138,12 +134,10 @@ fn main() -> ! {
 
         display.reset(&mut delay).ok();
         display.clear(Color::White).ok();
-        Text::new(status.as_str(), Point::new(70, 49))
-            .into_styled(text_style_black)
+        Text::new(status.as_str(), Point::new(70, 52), text_style_black)
             .draw(&mut display)
             .ok();
-        Text::new("Hello!", Point::new(120, 15))
-            .into_styled(text_style_red)
+        Text::new("Hello!", Point::new(120, 15), text_style_red)
             .draw(&mut display)
             .ok();
         Line::new(Point::new(10, 10), Point::new(100, 96))
