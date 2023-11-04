@@ -1,7 +1,8 @@
 # IL0373 ePaper Display Driver
 
-Rust driver for the [Dalian Good Displays IL0373][IL0373] e-Paper display (EPD)
-controller, for use with [embedded-graphics].
+Rust driver for the [Dalian Good Displays IL0373][IL0373] e-Paper
+display (EPD) controller. While it can be used stand-alone, it can
+also support the [embedded-graphics] crate.
 
 <img
 src="https://raw.githubusercontent.com/gpgreen/il0373/main/nucleo-epaper.jpg"
@@ -10,9 +11,10 @@ dev board" />
 
 ## Description
 
-This driver is intended to work on embedded platforms using the `embedded-graphics`
-library. It is `no_std` compatible, builds on stable Rust, and only uses
-safe Rust. It supports the 4-wire SPI interface. A feature `sram`
+This driver is intended to work on embedded platforms. It is `no_std`
+compatible, builds on stable Rust, and only uses safe Rust. A feature
+'graphics' enables support for the [embedded-graphics] library if that
+is desired. It supports the 4-wire SPI interface. A feature `sram`
 allows use of the SRAM device on the Adafruit display to store the
 display buffer instead of using RAM on the MCU. This feature is
 demonstrated in the [Nucleo-F103RB] example.
