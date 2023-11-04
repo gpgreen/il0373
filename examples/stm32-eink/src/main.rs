@@ -10,15 +10,11 @@
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
                                 //use panic_semihosting;
 
-use board::{
-    hal::{adc::Adc, delay::Delay, gpio::*, pac, prelude::*, spi::*},
-    spi::Mode,
-};
+use crate::board::{adc::Adc, gpio::*, pac, prelude::*, spi::Mode, spi::*};
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
 use heapless::consts::*;
 use heapless::String;
-use nucleo_f103rb as board;
+use stm32f1xx_hal as board;
 
 use il0373::{
     Builder, Color, Dimensions, Display, Rotation, SpiBus, SramDisplayInterface, SramGraphicDisplay,
@@ -48,19 +44,25 @@ fn main() -> ! {
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
     // HAL structs
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     // Freeze the configuration of all the clocks in the system and store
     // the frozen frequencies in `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(56.MHz())
+        .pclk1(28.MHz())
+        .adcclk(14.MHz())
+        .freeze(&mut flash.acr);
 
     // afio
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
 
     // gpioa
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    let mut gpioa = dp.GPIOA.split();
+    let mut gpiob = dp.GPIOB.split();
+    let mut gpioc = dp.GPIOC.split();
 
     // configure Digital I/O pins
     let busy = gpioa.pa8.into_pull_up_input(&mut gpioa.crh);
@@ -69,7 +71,7 @@ fn main() -> ! {
     let display_pins = (busy, dc, reset);
 
     //configure adc
-    let mut adc = Adc::adc1(dp.ADC1, &mut rcc.apb2, clocks);
+    let mut adc = Adc::adc1(dp.ADC1, clocks);
 
     // spi pins
     let pins = (
@@ -81,7 +83,7 @@ fn main() -> ! {
     let epd_cs = gpiob.pb6.into_push_pull_output(&mut gpiob.crl);
     let sram_cs = gpiob.pb10.into_push_pull_output(&mut gpiob.crh);
     let mut sdmmc_cs = gpiob.pb5.into_push_pull_output(&mut gpiob.crl);
-    sdmmc_cs.set_high().unwrap();
+    sdmmc_cs.set_high();
     let cs_pins = (epd_cs, sram_cs);
 
     // configure spi1
@@ -93,14 +95,13 @@ fn main() -> ! {
             polarity: Polarity::IdleLow,
             phase: Phase::CaptureOnFirstTransition,
         },
-        4.mhz(),
+        4.MHz(),
         clocks,
-        &mut rcc.apb2,
     );
     let spi_bus = SpiBus::new(spi, cs_pins);
 
     // Initialize display controller
-    let mut delay = Delay::new(cp.SYST, clocks);
+    let mut delay = cp.SYST.delay(&clocks);
 
     let controller = SramDisplayInterface::new(spi_bus, display_pins);
 
