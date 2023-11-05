@@ -3,7 +3,7 @@
 //! IL0373 ePaper Display Driver
 //!
 //! For a complete example see
-//! [the nucleo-f103rb example](https://github.com/gpgreen/stm32_eink/blob/master/src/main.rs).
+//! [the nucleo-f103rb example](https://github.com/gpgreen/il0373/tree/main/examples/stm32-eink).
 //!
 //! ### Usage
 //!

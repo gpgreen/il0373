@@ -1,20 +1,12 @@
 #![no_std]
 #![no_main]
 
-// gud invocation: gdb-multiarch -x openocd.gdb -q target/thumbv7m-none-eabi/debug/stm32-eink
-
-// pick a panicking behavior
-//extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
-//extern crate panic_abort; // requires nightly
-//extern crate panic_itm; // logs messages over ITM; requires ITM support
-extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
-                                //use panic_semihosting;
-
 use crate::board::{adc::Adc, gpio::*, pac, prelude::*, spi::Mode, spi::*};
 use cortex_m_rt::entry;
 use heapless::consts::*;
 use heapless::String;
 use stm32f1xx_hal as board;
+use {defmt_rtt as _, panic_probe as _};
 
 use il0373::{
     Builder, Color, Dimensions, Display, Rotation, SpiBus, SramDisplayInterface, SramGraphicDisplay,
