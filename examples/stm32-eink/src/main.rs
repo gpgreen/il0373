@@ -9,7 +9,8 @@ use stm32f1xx_hal as board;
 use {defmt_rtt as _, panic_probe as _};
 
 use il0373::{
-    Builder, Color, Dimensions, Display, Rotation, SpiBus, SramDisplayInterface, SramGraphicDisplay,
+    Builder, Color, Dimensions, Display, Rotation, SpiSramBus, SramDisplayInterface,
+    SramGraphicDisplay,
 };
 
 // Graphics
@@ -92,7 +93,7 @@ fn main() -> ! {
         4.MHz(),
         clocks,
     );
-    let spi_bus = SpiBus::new(spi, cs_pins);
+    let spi_bus = SpiSramBus::new(spi, cs_pins);
 
     // Initialize display controller
     let mut delay = cp.SYST.delay(&clocks);

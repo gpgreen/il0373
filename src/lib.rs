@@ -33,7 +33,7 @@
 //! buffer on that device, to reduce the memory footprint on the
 //! MCU. The SRAM device must be on the the same SPI port as the
 //! il0373. For this option, use the feature `sram`. Instead of using
-//! a [Interface] and [GraphicDisplay], use a [SpiBus], and an
+//! a [Interface] and [GraphicDisplay], use a [SpiSramBus], and an
 //! associated [SramDisplayInterface], then a [SramGraphicDisplay].
 //!
 //!
@@ -45,7 +45,7 @@
 //! 1. [sleep](display/struct.Display.html#method.deep_sleep)
 //!
 //! [Interface]: interface/struct.Interface.html
-//! [SpiBus]: interface/struct.SpiBus.html
+//! [SpiSramBus]: interface/struct.SpiSramBus.html
 //! [SramDisplayInterface]: interface/struct.SramDisplayInterface.html
 //! [Display]: display/struct.Display.html
 //! [GraphicDisplay]: display/struct.GraphicDisplay.html
@@ -80,6 +80,6 @@ pub use graphics::SramGraphicDisplay;
 pub use interface::DisplayInterface;
 pub use interface::Interface;
 #[cfg(feature = "sram")]
-pub use interface::SpiBus;
+pub use interface::SpiSramBus;
 #[cfg(feature = "sram")]
 pub use interface::SramDisplayInterface;

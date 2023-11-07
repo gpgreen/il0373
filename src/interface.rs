@@ -257,24 +257,24 @@ const MCPSRAM_WRSR: u8 = 0x01;
 const K640_SEQUENTIAL_MODE: u8 = 1 << 6;
 
 #[cfg(feature = "sram")]
-pub struct SpiBus<SPI, EPDCS, SRAMCS> {
+pub struct SpiSramBus<SPI, EPDCS, SRAMCS> {
     spi: SPI,
     epd_cs: EPDCS,
     sram_cs: SRAMCS,
 }
 
 #[cfg(feature = "sram")]
-impl<SPI, EPDCS, SRAMCS> SpiBus<SPI, EPDCS, SRAMCS>
+impl<SPI, EPDCS, SRAMCS> SpiSramBus<SPI, EPDCS, SRAMCS>
 where
     SPI: hal::blocking::spi::Transfer<u8>,
     EPDCS: hal::digital::v2::OutputPin,
     SRAMCS: hal::digital::v2::OutputPin,
 {
-    /// create a new SpiBus from embedded hal traits
-    pub fn new(spi: SPI, mut pins: (EPDCS, SRAMCS)) -> SpiBus<SPI, EPDCS, SRAMCS> {
+    /// create a new SpiSramBus from embedded hal traits
+    pub fn new(spi: SPI, mut pins: (EPDCS, SRAMCS)) -> SpiSramBus<SPI, EPDCS, SRAMCS> {
         pins.0.set_high().ok();
         pins.1.set_high().ok();
-        SpiBus {
+        SpiSramBus {
             spi,
             epd_cs: pins.0,
             sram_cs: pins.1,
@@ -384,7 +384,7 @@ where
 
 #[cfg(feature = "sram")]
 pub struct SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
-    spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
+    spi_bus: SpiSramBus<SPI, EPDCS, SRAMCS>,
     busy: BUSY,
     dc: DC,
     reset: RESET,
@@ -402,7 +402,7 @@ where
 {
     /// create a display interface from the embedded hal
     pub fn new(
-        spi_bus: SpiBus<SPI, EPDCS, SRAMCS>,
+        spi_bus: SpiSramBus<SPI, EPDCS, SRAMCS>,
         mut pins: (BUSY, DC, RESET),
     ) -> SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
         // dc inactive low
@@ -418,7 +418,7 @@ where
     }
 
     /// release the spibus and all the associated pins
-    pub fn release(self) -> (SpiBus<SPI, EPDCS, SRAMCS>, (BUSY, DC, RESET)) {
+    pub fn release(self) -> (SpiSramBus<SPI, EPDCS, SRAMCS>, (BUSY, DC, RESET)) {
         (self.spi_bus, (self.busy, self.dc, self.reset))
     }
 }
