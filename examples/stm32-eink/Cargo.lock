@@ -279,12 +279,11 @@ dependencies = [
 
 [[package]]
 name = "il0373"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal",
- "nb 1.0.0",
 ]
 
 [[package]]

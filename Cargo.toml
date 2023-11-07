@@ -1,6 +1,6 @@
 [package]
 name = "il0373"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Greg Green <ggreen@bit-builder.com>"]
 description = "Driver for the IL0373 e-Paper display (EPD) controller, for use with embedded-graphics"
 documentation = "https://docs.rs/il0373"
@@ -12,19 +12,15 @@ license = "MIT OR Apache-2.0"
 homepage = "https://github.com/gpgreen/il0373"
 
 [dependencies]
-nb = "1"
-embedded-graphics-core = "0.4"
-
-[dependencies.embedded-hal]
-features = ["unproven"]
-version = "0.2.4"
+embedded-graphics-core = "0.4.0"
+embedded-hal = { version = "0.2.7", features = ["unproven"] }
 
 [dependencies.embedded-graphics]
 optional = true
-version = "0.8"
+version = "0.8.1"
 
 [dev-dependencies]
-linux-embedded-hal = "0.3.0"
+linux-embedded-hal = "0.3.2"
 
 [profile.dev]
 lto = true

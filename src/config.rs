@@ -115,15 +115,15 @@ impl Builder {
     pub fn dimensions(self, dimensions: Dimensions) -> Self {
         assert!(
             dimensions.cols % 4 == 0,
-            "columns must be evenly divisible by 4"
+            "cols must be evenly divisible by 4"
         );
         assert!(
-            dimensions.rows <= display::MAX_GATE_OUTPUTS,
+            dimensions.rows <= display::MAX_GATE_OUTPUTS, // GATE is rows
             "rows must be less than MAX_GATE_OUTPUTS"
         );
         assert!(
-            dimensions.cols <= display::MAX_SOURCE_OUTPUTS,
-            "cols must be less than MAX_SOURCE_OUTPUTS"
+            dimensions.cols <= display::MAX_SOURCE_OUTPUTS, // SOURCE is columns
+            "columns must be less than MAX_SOURCE_OUTPUTS"
         );
 
         Self {

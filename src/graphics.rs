@@ -117,6 +117,7 @@ where
     }
 }
 
+// return index into array and bit position in that index
 fn rotation(x: u32, y: u32, width: u32, height: u32, rotation: Rotation) -> (u32, u8) {
     match rotation {
         Rotation::Rotate0 => (x / 8 + (width / 8) * y, 0x80 >> (x % 8)),
@@ -432,10 +433,49 @@ mod tests {
 
         let config = Builder::new()
             .dimensions(dimensions)
-            //            .rotation(Rotation::Rotate270)
             .build()
             .expect("invalid config");
         Display::new(interface, config)
+    }
+
+    #[test]
+    fn rotation_0() {
+        let rotation_data: [(u32, u32, u32, u8); 8] = [
+            (0, 0, 0, 0x80),
+            (103, 0, 12, 0x1),
+            (103, 211, 2755, 0x1),
+            (0, 211, 2743, 0x80),
+            (1, 0, 0, 0x40),
+            (2, 0, 0, 0x20),
+            (3, 0, 0, 0x10),
+            (4, 0, 0, 0x8),
+        ];
+        for (x, y, index, bit) in rotation_data.iter() {
+            assert_eq!(
+                (*index, *bit),
+                super::rotation(*x, *y, 104, 212, Rotation::Rotate0)
+            );
+        }
+    }
+
+    #[test]
+    fn rotation_270() {
+        let rotation_data: [(u32, u32, u32, u8); 8] = [
+            (0, 0, 2743, 0x80),
+            (211, 0, 0, 0x80),
+            (211, 103, 12, 0x1),
+            (0, 103, 2755, 0x1),
+            (7, 0, 2652, 0x80),
+            (0, 1, 2743, 0x40),
+            (0, 2, 2743, 0x20),
+            (1, 8, 2731, 0x80),
+        ];
+        for (x, y, index, bit) in rotation_data.iter() {
+            assert_eq!(
+                (*index, *bit),
+                super::rotation(*x, *y, 104, 212, Rotation::Rotate270)
+            );
+        }
     }
 
     #[test]
@@ -491,7 +531,7 @@ mod tests {
         {
             let mut display =
                 GraphicDisplay::new(build_mock_display(), &mut black_buffer, &mut red_buffer);
-            //            style = primitive_style!(stroke_color = Color::White, stroke_width = 1)
+            // display.clear(Color::Black).unwrap();
             let style = PrimitiveStyleBuilder::new()
                 .stroke_color(Color::White)
                 .stroke_width(1)
