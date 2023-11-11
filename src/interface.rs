@@ -65,8 +65,8 @@ pub trait DisplayInterface {
 /// use linux_embedded_hal::Delay;
 /// use linux_embedded_hal::{Pin, Spidev};
 ///
-/// extern crate ssd1675;
-/// use ssd1675::{Builder, Color, Dimensions, Display, GraphicDisplay, Rotation};
+/// extern crate il0373;
+/// use il0373::{Builder, Color, Dimensions, Display, GraphicDisplay, Rotation};
 ///
 /// // Configure SPI
 /// let mut spi = Spidev::open("/dev/spidev0.0").expect("SPI device");
@@ -105,7 +105,7 @@ pub trait DisplayInterface {
 /// reset.set_value(1).expect("reset Value set to 1");
 ///
 /// // Build the interface from the pins and SPI device
-/// let controller = ssd1675::Interface::new(spi, cs, busy, dc, reset);
+/// let controller = il0373::Interface::new(spi, cs, busy, dc, reset);
 
 pub struct Interface<SPI, CS, BUSY, DC, RESET> {
     /// SPI interface
@@ -355,8 +355,8 @@ where
         self.spi.transfer(&mut cmd)?;
         self.epd_cs.set_low().ok();
         let mut loc = [epd_location];
-        self.spi.transfer(&mut loc)?;
-        Ok(loc[0])
+        let c = self.spi.transfer(&mut loc)?;
+        Ok(c[0])
     }
 
     /// given the first byte from SRAM from sram_epd_move_header, transfer the rest
@@ -364,8 +364,10 @@ where
     /// must be pulled low between them in the protocol
     pub fn sram_epd_move_body(&mut self, ch: u8, data_len: u16) -> Result<(), SPI::Error> {
         let mut c = [ch];
+        // have to copy byte by byte
         for _i in 0..data_len {
-            self.spi.transfer(&mut c)?;
+            let recv = self.spi.transfer(&mut c)?;
+            c[0] = recv[0];
         }
         self.epd_cs.set_high().ok();
         self.sram_cs.set_high().ok();

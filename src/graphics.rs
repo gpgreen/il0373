@@ -251,38 +251,35 @@ where
         let index = index as u16;
 
         // get the existing buffer bytes
-        let mut buf: [u8; 1] = [0];
+        let mut black: [u8; 1] = [0];
         self.display
             .interface()
-            .sram_read(index + self.black_address, &mut buf)?;
-        let mut black = buf[0];
+            .sram_read(index + self.black_address, &mut black)?;
+        let mut red: [u8; 1] = [0];
         self.display
             .interface()
-            .sram_read(index + self.red_address, &mut buf)?;
-        let mut red = buf[0];
+            .sram_read(index + self.red_address, &mut red)?;
         match color {
             Color::Black => {
-                black &= !bit;
-                red |= bit;
+                black[0] &= !bit;
+                red[0] |= bit;
             }
             Color::White => {
-                black |= bit;
-                red |= bit;
+                black[0] |= bit;
+                red[0] |= bit;
             }
             Color::Red => {
-                black |= bit;
-                red &= !bit;
+                black[0] |= bit;
+                red[0] &= !bit;
             }
         }
         // write the new buffer bytes
-        buf[0] = black;
         self.display
             .interface()
-            .sram_write(index + self.black_address, &mut buf)?;
-        buf[0] = red;
+            .sram_write(index + self.black_address, &mut black)?;
         self.display
             .interface()
-            .sram_write(index + self.red_address, &mut buf)?;
+            .sram_write(index + self.red_address, &mut red)?;
         Ok(())
     }
 }
