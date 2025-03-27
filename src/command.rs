@@ -1,12 +1,4 @@
 use crate::interface::DisplayInterface;
-use core::ops;
-
-trait Contains<C>
-where
-    C: Copy + PartialOrd,
-{
-    fn contains(&self, item: C) -> bool;
-}
 
 /// Display Resolution
 #[derive(Clone, Copy)]
@@ -264,24 +256,6 @@ impl<'buf> BufCommand<'buf> {
         } else {
             interface.send_data(data)
         }
-    }
-}
-
-impl<C> Contains<C> for ops::Range<C>
-where
-    C: Copy + PartialOrd,
-{
-    fn contains(&self, item: C) -> bool {
-        item >= self.start && item < self.end
-    }
-}
-
-impl<C> Contains<C> for ops::RangeInclusive<C>
-where
-    C: Copy + PartialOrd,
-{
-    fn contains(&self, item: C) -> bool {
-        item >= *self.start() && item <= *self.end()
     }
 }
 

@@ -1,5 +1,10 @@
 # IL0373 ePaper Display Driver
 
+[![Crates.io](https://img.shields.io/crates/d/il0373.svg)](https://crates.io/crates/il0373)
+[![Crates.io](https://img.shields.io/crates/v/il0373.svg)](https://crates.io/crates/il0373)
+[![docs.rs](https://docs.rs/il0373/badge.svg)](https://docs.rs/il0373/)
+[![dependency status](https://deps.rs/repo/github/[gpgreen/il0373/status.svg)](https://deps.rs/repo/github/gpgreen/il0373)
+
 Rust driver for the [Dalian Good Displays IL0373][IL0373] e-Paper
 display (EPD) controller. While it can be used stand-alone, it can
 also support the [embedded-graphics] crate.
@@ -58,7 +63,6 @@ for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
 [Adafruit Tri-Color eInk]: https://www.adafruit.com/product/4086
-[crate-docs]: https://docs.rs/il0373
 [cross]: https://github.com/rust-embedded/cross
 [embedded-hal]: https://crates.io/crates/embedded-hal
 [IL0373]: https://www.e-paper-display.com/download_detail/downloadsId%3d535.html
