@@ -1,9 +1,9 @@
-use command::BufCommand;
+use crate::command::BufCommand;
 use core::fmt::Debug;
 use hal;
 
 // Sample code from Good Displays says to hold for 10ms
-const RESET_DELAY_MS: u8 = 10;
+const RESET_DELAY_MS: u32 = 10;
 
 /// Trait implemented by displays to provide implementation of core functionality.
 pub trait DisplayInterface {
@@ -19,10 +19,10 @@ pub trait DisplayInterface {
     fn send_data(&mut self, data: &[u8]) -> Result<(), Self::Error>;
 
     /// Reset the controller.
-    fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D);
+    fn reset<D: hal::delay::DelayNs>(&mut self, delay: &mut D);
 
     /// Wait for the controller to indicate it is not busy.
-    fn busy_wait(&self);
+    fn busy_wait(&mut self);
 
     //----- Following is only for buffers in RAM
     /// copy display buffer data to epd
@@ -122,11 +122,11 @@ pub struct Interface<SPI, CS, BUSY, DC, RESET> {
 
 impl<SPI, CS, BUSY, DC, RESET> Interface<SPI, CS, BUSY, DC, RESET>
 where
-    SPI: hal::blocking::spi::Write<u8>,
-    CS: hal::digital::v2::OutputPin,
-    BUSY: hal::digital::v2::InputPin,
-    DC: hal::digital::v2::OutputPin,
-    RESET: hal::digital::v2::OutputPin,
+    SPI: hal::spi::SpiBus,
+    CS: hal::digital::OutputPin,
+    BUSY: hal::digital::InputPin,
+    DC: hal::digital::OutputPin,
+    RESET: hal::digital::OutputPin,
 {
     /// Create a new Interface from embedded hal traits.
     pub fn new(spi: SPI, pins: (CS, BUSY, DC, RESET)) -> Self {
@@ -165,18 +165,18 @@ where
 
 impl<SPI, CS, BUSY, DC, RESET> DisplayInterface for Interface<SPI, CS, BUSY, DC, RESET>
 where
-    SPI: hal::blocking::spi::Write<u8>,
-    CS: hal::digital::v2::OutputPin,
+    SPI: hal::spi::SpiBus,
+    CS: hal::digital::OutputPin,
     CS::Error: Debug,
-    BUSY: hal::digital::v2::InputPin,
-    DC: hal::digital::v2::OutputPin,
+    BUSY: hal::digital::InputPin,
+    DC: hal::digital::OutputPin,
     DC::Error: Debug,
-    RESET: hal::digital::v2::OutputPin,
+    RESET: hal::digital::OutputPin,
     RESET::Error: Debug,
 {
     type Error = SPI::Error;
 
-    fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D) {
+    fn reset<D: hal::delay::DelayNs>(&mut self, delay: &mut D) {
         // do a hardware reset 3 times
         self.reset.set_low().unwrap();
         delay.delay_ms(RESET_DELAY_MS);
@@ -238,7 +238,7 @@ where
         }
     }
 
-    fn busy_wait(&self) {
+    fn busy_wait(&mut self) {
         while match self.busy.is_high() {
             Ok(x) => x,
             _ => false,
@@ -266,9 +266,9 @@ pub struct SpiSramBus<SPI, EPDCS, SRAMCS> {
 #[cfg(feature = "sram")]
 impl<SPI, EPDCS, SRAMCS> SpiSramBus<SPI, EPDCS, SRAMCS>
 where
-    SPI: hal::blocking::spi::Transfer<u8>,
-    EPDCS: hal::digital::v2::OutputPin,
-    SRAMCS: hal::digital::v2::OutputPin,
+    SPI: hal::spi::SpiBus,
+    EPDCS: hal::digital::OutputPin,
+    SRAMCS: hal::digital::OutputPin,
 {
     /// create a new SpiSramBus from embedded hal traits
     pub fn new(spi: SPI, mut pins: (EPDCS, SRAMCS)) -> SpiSramBus<SPI, EPDCS, SRAMCS> {
@@ -289,7 +289,7 @@ where
     /// initialize sram device
     pub fn sram_init(&mut self) -> Result<(), SPI::Error> {
         self.sram_cs.set_low().ok();
-        self.spi.transfer(&mut [0xFF, 0xFF, 0xFF])?;
+        self.spi.write(&[0xFF, 0xFF, 0xFF])?;
         self.sram_cs.set_high().ok();
         Ok(())
     }
@@ -297,8 +297,7 @@ where
     /// set sram device to sequential
     pub fn sram_seq(&mut self) -> Result<(), SPI::Error> {
         self.sram_cs.set_low().ok();
-        self.spi
-            .transfer(&mut [MCPSRAM_WRSR, K640_SEQUENTIAL_MODE])?;
+        self.spi.write(&[MCPSRAM_WRSR, K640_SEQUENTIAL_MODE])?;
         self.sram_cs.set_high().ok();
         Ok(())
     }
@@ -306,11 +305,9 @@ where
     /// write to the sram
     pub fn sram_write(&mut self, address: u16, data: &[u8]) -> Result<(), SPI::Error> {
         self.sram_cs.set_low().ok();
-        let mut cmd: [u8; 3] = [MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8];
-        self.spi.transfer(&mut cmd)?;
-        for byte in data.iter() {
-            self.spi.transfer(&mut [*byte])?;
-        }
+        self.spi
+            .write(&[MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8])?;
+        self.spi.write(data)?;
         self.sram_cs.set_high().ok();
         Ok(())
     }
@@ -318,9 +315,9 @@ where
     /// read the sram
     pub fn sram_read(&mut self, address: u16, data: &mut [u8]) -> Result<(), SPI::Error> {
         self.sram_cs.set_low().ok();
-        let mut cmd: [u8; 3] = [MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8];
-        self.spi.transfer(&mut cmd)?;
-        self.spi.transfer(data)?;
+        self.spi
+            .write(&[MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8])?;
+        self.spi.read(data)?;
         self.sram_cs.set_high().ok();
         Ok(())
     }
@@ -331,10 +328,10 @@ where
             panic!("sram_erase expects a len divisible by 4");
         }
         self.sram_cs.set_low().ok();
-        let mut cmd: [u8; 3] = [MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8];
-        self.spi.transfer(&mut cmd)?;
+        self.spi
+            .write(&[MCPSRAM_WRITE, (address >> 8) as u8, (address & 0xFF) as u8])?;
         for _i in 0..len / 4 {
-            self.spi.transfer(&mut [val, val, val, val])?;
+            self.spi.write(&mut [val, val, val, val])?;
         }
         self.sram_cs.set_high().ok();
         Ok(())
@@ -351,12 +348,12 @@ where
     ) -> Result<u8, SPI::Error> {
         self.sram_cs.set_low().ok();
         // send address and get first byte of data
-        let mut cmd: [u8; 3] = [MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8];
-        self.spi.transfer(&mut cmd)?;
+        self.spi
+            .write(&[MCPSRAM_READ, (address >> 8) as u8, (address & 0xFF) as u8])?;
         self.epd_cs.set_low().ok();
         let mut loc = [epd_location];
-        let c = self.spi.transfer(&mut loc)?;
-        Ok(c[0])
+        self.spi.read(&mut loc)?;
+        Ok(loc[0])
     }
 
     /// given the first byte from SRAM from sram_epd_move_header, transfer the rest
@@ -366,8 +363,8 @@ where
         let mut c = [ch];
         // have to copy byte by byte
         for _i in 0..data_len {
-            let recv = self.spi.transfer(&mut c)?;
-            c[0] = recv[0];
+            let recvd = c[0];
+            self.spi.transfer(&mut c, &[recvd])?;
         }
         self.epd_cs.set_high().ok();
         self.sram_cs.set_high().ok();
@@ -376,9 +373,7 @@ where
     /// write to the epaper display
     pub fn epd_write(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
         self.epd_cs.set_low().ok();
-        for byte in data.iter() {
-            self.spi.transfer(&mut [*byte])?;
-        }
+        self.spi.write(data)?;
         self.epd_cs.set_high().ok();
         Ok(())
     }
@@ -395,12 +390,12 @@ pub struct SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> {
 #[cfg(feature = "sram")]
 impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
 where
-    SPI: hal::blocking::spi::Transfer<u8>,
-    EPDCS: hal::digital::v2::OutputPin,
-    SRAMCS: hal::digital::v2::OutputPin,
-    BUSY: hal::digital::v2::InputPin,
-    DC: hal::digital::v2::OutputPin,
-    RESET: hal::digital::v2::OutputPin,
+    SPI: hal::spi::SpiBus,
+    EPDCS: hal::digital::OutputPin,
+    SRAMCS: hal::digital::OutputPin,
+    BUSY: hal::digital::InputPin,
+    DC: hal::digital::OutputPin,
+    RESET: hal::digital::OutputPin,
 {
     /// create a display interface from the embedded hal
     pub fn new(
@@ -429,12 +424,12 @@ where
 impl<SPI, EPDCS, SRAMCS, BUSY, DC, RESET> DisplayInterface
     for SramDisplayInterface<SPI, EPDCS, SRAMCS, BUSY, DC, RESET>
 where
-    SPI: hal::blocking::spi::Transfer<u8>,
-    EPDCS: hal::digital::v2::OutputPin,
-    SRAMCS: hal::digital::v2::OutputPin,
-    BUSY: hal::digital::v2::InputPin,
-    DC: hal::digital::v2::OutputPin,
-    RESET: hal::digital::v2::OutputPin,
+    SPI: hal::spi::SpiBus,
+    EPDCS: hal::digital::OutputPin,
+    SRAMCS: hal::digital::OutputPin,
+    BUSY: hal::digital::InputPin,
+    DC: hal::digital::OutputPin,
+    RESET: hal::digital::OutputPin,
 {
     type Error = SPI::Error;
 
@@ -448,7 +443,7 @@ where
         self.spi_bus.epd_write(data)
     }
 
-    fn reset<D: hal::blocking::delay::DelayMs<u8>>(&mut self, delay: &mut D) {
+    fn reset<D: hal::delay::DelayNs>(&mut self, delay: &mut D) {
         // setup the sram
         self.spi_bus.sram_init().ok();
 
@@ -469,7 +464,7 @@ where
         self.spi_bus.sram_seq().ok();
     }
 
-    fn busy_wait(&self) {
+    fn busy_wait(&mut self) {
         while match self.busy.is_high() {
             Ok(x) => x,
             _ => false,

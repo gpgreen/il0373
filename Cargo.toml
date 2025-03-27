@@ -9,18 +9,23 @@ readme = "README.md"
 keywords = ["epaper", "il0373", "embedded-graphics"]
 categories = ["embedded", "graphics", "hardware-support", "no-std"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/gpgreen/il0373"
+edition = "2018"
 
 [dependencies]
 embedded-graphics-core = "0.4.0"
-embedded-hal = { version = "0.2.7", features = ["unproven"] }
+embedded-hal = "1.0"
+
+[dependencies.embedded-hal-02]
+package = "embedded-hal"
+version = "0.2.7"
+features = ["unproven"]
 
 [dependencies.embedded-graphics]
 optional = true
 version = "0.8.1"
 
 [dev-dependencies]
-linux-embedded-hal = "0.3.2"
+linux-embedded-hal = "0.4.0"
 
 [profile.dev]
 lto = true

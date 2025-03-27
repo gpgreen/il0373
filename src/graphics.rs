@@ -1,7 +1,7 @@
-use color::Color;
+use crate::color::Color;
+use crate::display::{Display, Rotation};
+use crate::interface::DisplayInterface;
 use core::ops::{Deref, DerefMut};
-use display::{Display, Rotation};
-use interface::DisplayInterface;
 
 /// A display that holds buffers for drawing into and updating the display from.
 ///

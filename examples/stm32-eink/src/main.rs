@@ -1,11 +1,13 @@
 #![no_std]
 #![no_main]
 
-use crate::board::{adc::Adc, gpio::*, pac, prelude::*, spi::Mode, spi::*};
-use cortex_m_rt::entry;
+use crate::board::{adc, gpio, rcc, spi};
+use embassy_executor::Spawner;
+use embassy_stm32 as board;
+use embassy_stm32::time::Hertz;
+use embassy_time::{Delay, Timer};
 use heapless::consts::*;
 use heapless::String;
-use stm32f1xx_hal as board;
 use {defmt_rtt as _, panic_probe as _};
 
 use il0373::{
@@ -29,78 +31,58 @@ use embedded_graphics::{
 const ROWS: u16 = 212;
 const COLS: u8 = 104;
 
-#[entry]
-fn main() -> ! {
-    // Get access to the core peripherals from the cortex-m crate
-    let cp = cortex_m::Peripherals::take().unwrap();
-    // Get access to the device specific peripherals from the peripheral access crate
-    let dp = pac::Peripherals::take().unwrap();
-
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store
-    // the frozen frequencies in `clocks`
-    let clocks = rcc
-        .cfgr
-        .use_hse(8.MHz())
-        .sysclk(56.MHz())
-        .pclk1(28.MHz())
-        .adcclk(14.MHz())
-        .freeze(&mut flash.acr);
-
-    // afio
-    let mut afio = dp.AFIO.constrain();
-
-    // gpioa
-    let mut gpioa = dp.GPIOA.split();
-    let mut gpiob = dp.GPIOB.split();
-    let mut gpioc = dp.GPIOC.split();
+#[embassy_executor::main]
+async fn main(_spawner: Spawner) {
+    let mut config = embassy_stm32::Config::default();
+    config.rcc.hse = Some(rcc::Hse {
+        freq: Hertz(8_000_000),
+        // Oscillator for bluepill, Bypass for nucleos.
+        mode: rcc::HseMode::Bypass,
+    });
+    config.rcc.pll = Some(rcc::Pll {
+        src: rcc::PllSource::HSE,
+        prediv: rcc::PllPreDiv::DIV1,
+        mul: rcc::PllMul::MUL7,
+    });
+    config.rcc.sys = rcc::Sysclk::PLL1_P;
+    config.rcc.ahb_pre = rcc::AHBPrescaler::DIV1;
+    config.rcc.apb1_pre = rcc::APBPrescaler::DIV2;
+    config.rcc.apb2_pre = rcc::APBPrescaler::DIV2;
+    config.rcc.adc_pre = rcc::ADCPrescaler::DIV2;
+    let p = embassy_stm32::init(config);
 
     // configure Digital I/O pins
-    let busy = gpioa.pa8.into_pull_up_input(&mut gpioa.crh);
-    let dc = gpioc.pc7.into_push_pull_output(&mut gpioc.crl);
-    let reset = gpioa.pa9.into_push_pull_output(&mut gpioa.crh);
+    let busy = gpio::Input::new(p.PA8, gpio::Pull::Up); // pull-up input
+    let dc = gpio::Output::new(p.PC7, gpio::Level::High, gpio::Speed::Low);
+    let reset = gpio::Output::new(p.PA9, gpio::Level::High, gpio::Speed::Low);
+
     let display_pins = (busy, dc, reset);
 
     //configure adc
-    let mut adc = Adc::adc1(dp.ADC1, clocks);
+    let mut adc = adc::Adc::new(p.ADC1);
+    let mut temp_ch = adc.enable_temperature();
 
-    // spi pins
-    let pins = (
-        gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl),
-        gpioa.pa6.into_floating_input(&mut gpioa.crl),
-        gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl),
-    );
-
-    let epd_cs = gpiob.pb6.into_push_pull_output(&mut gpiob.crl);
-    let sram_cs = gpiob.pb10.into_push_pull_output(&mut gpiob.crh);
-    let mut sdmmc_cs = gpiob.pb5.into_push_pull_output(&mut gpiob.crl);
+    let epd_cs = gpio::Output::new(p.PB6, gpio::Level::High, gpio::Speed::Low);
+    let sram_cs = gpio::Output::new(p.PB10, gpio::Level::High, gpio::Speed::Low);
+    let mut sdmmc_cs = gpio::Output::new(p.PB5, gpio::Level::High, gpio::Speed::Low);
     sdmmc_cs.set_high();
     let cs_pins = (epd_cs, sram_cs);
 
     // configure spi1
-    let spi = Spi::spi1(
-        dp.SPI1,
-        pins,
-        &mut afio.mapr,
-        Mode {
-            polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnFirstTransition,
-        },
-        4.MHz(),
-        clocks,
-    );
+    let mut spi_config = spi::Config::default();
+    spi_config.frequency = Hertz(4_000_000);
+    spi_config.mode = spi::Mode {
+        polarity: spi::Polarity::IdleLow,
+        phase: spi::Phase::CaptureOnFirstTransition,
+    };
+
+    let spi = spi::Spi::new_blocking(p.SPI1, p.PA5, p.PA7, p.PA6, spi_config);
     let spi_bus = SpiSramBus::new(spi, cs_pins);
 
     // Initialize display controller
-    let mut delay = cp.SYST.delay(&clocks);
-
     let controller = SramDisplayInterface::new(spi_bus, display_pins);
 
-    delay.delay_ms(800u32);
+    Timer::after_millis(800).await;
 
     let config = Builder::new()
         .dimensions(Dimensions {
@@ -120,8 +102,9 @@ fn main() -> ! {
     let text_style_red = MonoTextStyle::new(&FONT_10X20, Color::Red);
 
     // Check the temperature and display it, wait for 180s, and do it again
+    let mut delay = Delay;
     loop {
-        let temp = adc.read_temp();
+        let temp = adc.read(&mut temp_ch).await;
         let mut status = String::<U32>::from("Nucleo-F103RB: ");
         status.push_str(&String::<U32>::from(temp)).ok();
 
@@ -150,6 +133,6 @@ fn main() -> ! {
 
         // adafruit says to only update the display every 180 seconds
         // or risk damaging the display
-        delay.delay_ms(180_000u32);
+        Timer::after_millis(180_000).await;
     }
 }

@@ -1,7 +1,7 @@
-use command::{Command, DataInterval, DataPolarity};
-use config::Config;
+use crate::command::{Command, DataInterval, DataPolarity};
+use crate::config::Config;
+use crate::interface::DisplayInterface;
 use hal;
-use interface::DisplayInterface;
 
 // Max display resolution is 160x296
 /// The maximum number of rows supported by the controller
@@ -64,19 +64,13 @@ where
     /// Perform a hardware reset
     ///
     /// This will wake a controller that has previously entered deep sleep.
-    pub fn reset<D: hal::blocking::delay::DelayMs<u8>>(
-        &mut self,
-        delay: &mut D,
-    ) -> Result<(), I::Error> {
+    pub fn reset<D: hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), I::Error> {
         self.interface.reset(delay);
         self.init(delay)
     }
 
     /// Initialize the controller
-    fn init<D: hal::blocking::delay::DelayMs<u8>>(
-        &mut self,
-        delay: &mut D,
-    ) -> Result<(), I::Error> {
+    fn init<D: hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), I::Error> {
         self.config.power_setting.execute(&mut self.interface)?;
         self.config
             .booster_soft_start

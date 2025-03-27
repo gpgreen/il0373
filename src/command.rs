@@ -1,5 +1,5 @@
+use crate::interface::DisplayInterface;
 use core::ops;
-use interface::DisplayInterface;
 
 trait Contains<C>
 where

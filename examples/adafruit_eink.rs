@@ -12,12 +12,12 @@ use il0373::{Builder, Color, Dimensions, Display, GraphicDisplay, Interface, Rot
 use linux_embedded_hal::{
     spidev::{SpiModeFlags, SpidevOptions},
     sysfs_gpio::Direction,
-    Pin, Spidev,
+    SpidevBus, SysfsPin,
 };
 
 fn main() -> Result<(), std::convert::Infallible> {
     // Configure SPI
-    let mut spi = Spidev::open("/dev/spidev0.0").expect("SPI device");
+    let mut spi = SpidevBus::open("/dev/spidev0.0").expect("SPI device");
     let options = SpidevOptions::new()
         .bits_per_word(8)
         .max_speed_hz(4_000_000)
@@ -27,24 +27,24 @@ fn main() -> Result<(), std::convert::Infallible> {
 
     // https://pinout.xyz/pinout/inky_phat
     // Configure Digital I/O Pins
-    let cs = Pin::new(8); // BCM8
+    let cs = SysfsPin::new(8); // BCM8
     cs.export().expect("cs export");
     while !cs.is_exported() {}
     cs.set_direction(Direction::Out).expect("CS Direction");
     cs.set_value(1).expect("CS Value set to 1");
 
-    let busy = Pin::new(17); // BCM17
+    let busy = SysfsPin::new(17); // BCM17
     busy.export().expect("busy export");
     while !busy.is_exported() {}
     busy.set_direction(Direction::In).expect("busy Direction");
 
-    let dc = Pin::new(22); // BCM22
+    let dc = SysfsPin::new(22); // BCM22
     dc.export().expect("dc export");
     while !dc.is_exported() {}
     dc.set_direction(Direction::Out).expect("dc Direction");
     dc.set_value(1).expect("dc Value set to 1");
 
-    let reset = Pin::new(27); // BCM27
+    let reset = SysfsPin::new(27); // BCM27
     reset.export().expect("reset export");
     while !reset.is_exported() {}
     reset

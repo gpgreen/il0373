@@ -1,5 +1,5 @@
-use command::{Command, DisplayResolution};
-use display::{self, Dimensions, Rotation};
+use crate::command::{Command, DisplayResolution};
+use crate::display::{self, Dimensions, Rotation};
 
 /// Builder for constructing a display Config.
 ///
